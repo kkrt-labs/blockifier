@@ -15,7 +15,7 @@ use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use serde::de::Error as DeserializationError;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use starknet_api::core::EntryPointSelector;
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPoint, EntryPointOffset, EntryPointType,
@@ -31,7 +31,7 @@ use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_p
 /// We wrap the actual class in an Arc to avoid cloning the program when cloning the class.
 // Note: when deserializing from a SN API class JSON string, the ABI field is ignored
 // by serde, since it is not required for execution.
-#[derive(Clone, Debug, Eq, PartialEq, derive_more::From)]
+#[derive(Clone, Debug, Eq, PartialEq, derive_more::From, Serialize, Deserialize)]
 pub enum ContractClass {
     V0(ContractClassV0),
     V1(ContractClassV1),
@@ -54,7 +54,7 @@ impl ContractClass {
 }
 
 // V0.
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ContractClassV0(pub Arc<ContractClassV0Inner>);
 impl Deref for ContractClassV0 {
     type Target = ContractClassV0Inner;
@@ -105,7 +105,7 @@ impl ContractClassV0 {
     }
 }
 
-#[derive(Debug, Clone, Default, Eq, PartialEq, Deserialize)]
+#[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ContractClassV0Inner {
     #[serde(deserialize_with = "deserialize_program")]
     pub program: Program,
@@ -124,7 +124,7 @@ impl TryFrom<DeprecatedContractClass> for ContractClassV0 {
 }
 
 // V1.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ContractClassV1(pub Arc<ContractClassV1Inner>);
 impl Deref for ContractClassV1 {
     type Target = ContractClassV1Inner;
@@ -195,14 +195,14 @@ impl ContractClassV1 {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ContractClassV1Inner {
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPointV1>>,
     pub hints: HashMap<String, Hint>,
 }
 
-#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct EntryPointV1 {
     pub selector: EntryPointSelector,
     pub offset: EntryPointOffset,

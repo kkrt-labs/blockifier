@@ -46,3 +46,7 @@ strum_macros = "0.24.3"
 test-case = "2.2.2"
 tempfile = "3.7.0"
 thiserror = "1.0.37"
+
+[patch.crates-io]
+cairo-felt = { git = "https://github.com/bajpai244/cairo-vm.git", branch = "feat/add-serialization-to-program" }
+cairo-vm = { git = "https://github.com/bajpai244/cairo-vm.git", branch = "feat/add-serialization-to-program" }
