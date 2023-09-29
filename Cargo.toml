@@ -58,3 +58,7 @@ future-incompatible = "deny"
 nonstandard-style = "deny"
 rust-2018-idioms = "deny"
 unused = "deny"
+
+[patch.crates-io]
+cairo-felt = { git = "https://github.com/kkrt-labs/cairo-vm.git", branch = "v0.8.2" }
+cairo-vm = { git = "https://github.com/kkrt-labs/cairo-vm.git", branch = "v0.8.2" }
