@@ -107,7 +107,7 @@ impl ContractClassV0 {
 
 #[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ContractClassV0Inner {
-    #[serde(deserialize_with = "deserialize_program")]
+    // #[serde(deserialize_with = "deserialize_program")]
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPoint>>,
 }
@@ -321,4 +321,41 @@ fn convert_entry_points_v1(
             })
         })
         .collect()
+}
+
+
+#[cfg(test)]
+mod test {
+    use std::sync::Arc;
+
+    use crate::execution::contract_class::{ContractClassV1Inner, ContractClassV0, ContractClass};
+
+    use super::ContractClassV0Inner;
+
+    #[test]
+    fn test_serialization_inner_class_v0() {
+        let class_inner = ContractClassV0Inner::default();
+        let class_inner = Arc::new(class_inner);
+        let class_inner = ContractClassV0(class_inner);
+        let value = serde_json::to_string_pretty(&class_inner).unwrap();
+        println!("value is -----> {}", value)
+    }
+
+    #[test]
+    fn test_serialization_contract_class() {
+        let class_inner = ContractClassV0Inner::default();
+        let class_inner = Arc::new(class_inner);
+        let class_inner = ContractClassV0(class_inner);
+
+        let contract_class = ContractClass::V0(class_inner);
+        let value = serde_json::to_string_pretty(&contract_class).unwrap();
+        println!("value is -----> {}", value)
+    }
+
+    #[test]
+    fn test_serialization_inner_class_v1() {
+        let class_inner = ContractClassV1Inner::default();
+        let value = serde_json::to_string_pretty(&class_inner).unwrap();
+        println!("value is -----> {}", value)
+    }
 }
