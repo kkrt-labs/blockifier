@@ -483,7 +483,7 @@ checksum = "3a4f925191b4367301851c6d99b09890311d74b0d43f274c0b34c86d308a3663"
 [[package]]
 name = "cairo-felt"
 version = "0.8.2"
-source = "git+https://github.com/bajpai244/cairo-vm.git?branch=feat/add-serialization-to-program#a018c162d1e9383fb0f5b3d3be9fd6842f1864d4"
+source = "git+https://github.com/bajpai244/cairo-vm.git?branch=feat/add-serialization-to-program#28f047813e1c5d132659f15af009f7d304253d12"
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -952,7 +952,7 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "0.8.2"
-source = "git+https://github.com/bajpai244/cairo-vm.git?branch=feat/add-serialization-to-program#a018c162d1e9383fb0f5b3d3be9fd6842f1864d4"
+source = "git+https://github.com/bajpai244/cairo-vm.git?branch=feat/add-serialization-to-program#28f047813e1c5d132659f15af009f7d304253d12"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2543,7 +2543,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e681a6cfdc4adcc93b4d3cf993749a4552018ee0a9b65fc0ccfad74352c72a38"
 dependencies = [
  "cfg-if",
- "hashbrown 0.14.0",
+ "hashbrown 0.13.2",
  "indoc 1.0.9",
  "libc",
  "memoffset",
