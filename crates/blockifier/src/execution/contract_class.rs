@@ -109,7 +109,8 @@ impl ContractClassV0 {
 
 #[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ContractClassV0Inner {
-    #[serde(serialize_with = "serialize_program", deserialize_with = "deserialize_program")]
+    // #[serde(serialize_with = "serialize_program", deserialize_with = "deserialize_program")]
+    #[serde(deserialize_with = "deserialize_program")]
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPoint>>,
 }
@@ -302,9 +303,27 @@ where S: Serializer
 pub fn deserialize_program<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Program, D::Error> {
-    let deprecated_program = DeprecatedProgram::deserialize(deserializer)?;
-    sn_api_to_cairo_vm_program(deprecated_program)
-        .map_err(|err| DeserializationError::custom(err.to_string()))
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(untagged)]
+    enum TempProgram {
+        CairoVM(Program),
+        SN(DeprecatedProgram)
+    }
+
+    let program = TempProgram::deserialize(deserializer)?;
+
+    match program {
+        TempProgram::CairoVM(program) => {
+            Ok(program)
+        },
+        TempProgram::SN(program) => {
+                let program = sn_api_to_cairo_vm_program(program).map_err(|err| {
+                        DeserializationError::custom(err.to_string())
+                })?;
+                Ok(program)
+        }
+    }
 }
 
 // V1 utilities.
