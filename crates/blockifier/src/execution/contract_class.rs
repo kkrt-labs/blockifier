@@ -308,7 +308,7 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
     #[serde(untagged)]
     enum TempProgram<V> {
         Valid(V),
-        Invalid(serde_json::Value)
+        // Invalid(serde_json::Value)
     }
 
     let program: TempProgram<Program> = TempProgram::deserialize(deserializer)?;
