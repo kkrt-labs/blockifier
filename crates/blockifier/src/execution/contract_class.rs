@@ -305,8 +305,8 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
 ) -> Result<Program, D::Error> {
 
     #[derive(Serialize, Deserialize)]
+    #[serde(untagged)]
     enum TempProgram {
-        #[serde(untagged)]
         CairoVM(Program),
         // #[serde(untagged)]
         // SN(DeprecatedProgram)
