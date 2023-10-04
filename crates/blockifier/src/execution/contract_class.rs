@@ -317,10 +317,10 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
         TempProgram::Valid(program) => {
             Ok(program)
         },
-        TempProgram::Invalid(value) => {
-           let program: Program = serde_json::from_value(value).unwrap();
-           Ok(program)
-        }
+        // TempProgram::Invalid(value) => {
+        //    let program: Program = serde_json::from_value(value).unwrap();
+        //    Ok(program)
+        // }
         // TempProgram::SN(program) => {
         //         let program = sn_api_to_cairo_vm_program(program).map_err(|err| {
         //                 DeserializationError::custom(err.to_string())
