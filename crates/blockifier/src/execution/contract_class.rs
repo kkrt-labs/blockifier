@@ -14,12 +14,14 @@ use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
-use serde::de::Error as DeserializationError;
+//TODO(harsh): uncomment
+// use serde::de::Error as DeserializationError;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use starknet_api::core::EntryPointSelector;
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPoint, EntryPointOffset, EntryPointType,
-    Program as DeprecatedProgram,
+    //TODO(harsh): uncomment
+    // Program as DeprecatedProgram,
 };
 
 use crate::abi::abi_utils::selector_from_name;
@@ -304,26 +306,28 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Program, D::Error> {
 
-    #[derive(Serialize, Deserialize)]
-    #[serde(untagged)]
-    enum TempProgram {
-        CairoVM(Program),
-        SN(DeprecatedProgram)
-    }
+    // #[derive(Serialize, Deserialize)]
+    // #[serde(untagged)]
+    // enum TempProgram {
+    //     CairoVM(Program),
+    //     SN(DeprecatedProgram)
+    // }
 
-    let program = TempProgram::deserialize(deserializer)?;
+    // let program = TempProgram::deserialize(deserializer)?;
 
-    match program {
-        TempProgram::CairoVM(program) => {
-            Ok(program)
-        },
-        TempProgram::SN(program) => {
-                let program = sn_api_to_cairo_vm_program(program).map_err(|err| {
-                        DeserializationError::custom(err.to_string())
-                })?;
-                Ok(program)
-        }
-    }
+    // match program {
+    //     TempProgram::CairoVM(program) => {
+    //         Ok(program)
+    //     },
+    //     TempProgram::SN(program) => {
+    //             let program = sn_api_to_cairo_vm_program(program).map_err(|err| {
+    //                     DeserializationError::custom(err.to_string())
+    //             })?;
+    //             Ok(program)
+    //     }
+    // }
+
+    Program::deserialize(deserializer)
 }
 
 // V1 utilities.
