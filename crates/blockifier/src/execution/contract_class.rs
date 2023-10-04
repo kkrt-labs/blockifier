@@ -304,7 +304,21 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Program, D::Error> {
 
-    Program::deserialize(deserializer)
+    // Program::deserialize(deserializer)
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(untagged)]
+    enum TempProgram {
+        CairoVM(Program)
+    }
+
+    let program = TempProgram::deserialize(deserializer)?;
+
+    match program {
+        TempProgram::CairoVM(program) => {
+            Ok(program)
+        }
+    }
 
     // #[derive(Serialize, Deserialize)]
     // #[serde(untagged)]
