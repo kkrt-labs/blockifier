@@ -308,19 +308,22 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
     #[serde(untagged)]
     enum TempProgram<V> {
         Valid(V),
-        // Invalid(serde_json::Value)
+        Invalid(serde_json::Value)
     }
 
     let program: TempProgram<Program> = TempProgram::deserialize(deserializer)?;
 
     match program {
         TempProgram::Valid(program) => {
-            Ok(program)
-        },
-        // TempProgram::Invalid(value) => {
-        //    let program: Program = serde_json::from_value(value).unwrap();
-        //    Ok(program)
-        // }
+            Ok(program)},
+        TempProgram::Invalid(value) => {
+           //TODO(harsh): remove
+           println!("the value is -----> {:?}", value);
+           let program: Program = serde_json::from_value(value).unwrap();
+           //TODO(harsh): remove
+           println!("the program is -----> {:?}", program);
+           Ok(program)
+        }
         // TempProgram::SN(program) => {
         //         let program = sn_api_to_cairo_vm_program(program).map_err(|err| {
         //                 DeserializationError::custom(err.to_string())
