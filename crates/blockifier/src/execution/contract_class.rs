@@ -308,8 +308,8 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
     enum TempProgram {
         #[serde(untagged)]
         CairoVM(Program),
-        #[serde(untagged)]
-        SN(DeprecatedProgram)
+        // #[serde(untagged)]
+        // SN(DeprecatedProgram)
     }
 
     let program = TempProgram::deserialize(deserializer)?;
@@ -318,12 +318,12 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
         TempProgram::CairoVM(program) => {
             Ok(program)
         },
-        TempProgram::SN(program) => {
-                let program = sn_api_to_cairo_vm_program(program).map_err(|err| {
-                        DeserializationError::custom(err.to_string())
-                })?;
-                Ok(program)
-        }
+        // TempProgram::SN(program) => {
+        //         let program = sn_api_to_cairo_vm_program(program).map_err(|err| {
+        //                 DeserializationError::custom(err.to_string())
+        //         })?;
+        //         Ok(program)
+        // }
     }
 
     // TODO(harsh): remove
