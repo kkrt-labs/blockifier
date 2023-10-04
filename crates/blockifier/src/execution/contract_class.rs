@@ -321,7 +321,7 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
            println!("the value is -----> {:?}", value);
            let program: Program = serde_json::from_value(value).unwrap();
            //TODO(harsh): remove
-           println!("the program is -----> {:?}", program);
+           println!("the program is Ok");
            Ok(program)
         }
         // TempProgram::SN(program) => {
