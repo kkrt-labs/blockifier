@@ -304,33 +304,37 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Program, D::Error> {
 
-    #[derive(Serialize, Deserialize)]
-    #[serde(untagged)]
-    enum TempProgram<V> {
-        Valid(V),
-        Invalid(serde_json::Value)
-    }
+    Program::deserialize(deserializer)
 
-    let program: TempProgram<Program> = TempProgram::deserialize(deserializer)?;
+    // #[derive(Serialize, Deserialize)]
+    // #[serde(untagged)]
+    // enum TempProgram<V> {
+    //     Valid(V),
+    //     Invalid(serde_json::Value)
+    // }
 
-    match program {
-        TempProgram::Valid(program) => {
-            Ok(program)},
-        TempProgram::Invalid(value) => {
-           //TODO(harsh): remove
-           println!("the value is -----> {:?}", value);
-           let program: Program = serde_json::from_value(value).unwrap();
-           //TODO(harsh): remove
-           println!("the program is Ok");
-           Ok(program)
-        }
-        // TempProgram::SN(program) => {
-        //         let program = sn_api_to_cairo_vm_program(program).map_err(|err| {
-        //                 DeserializationError::custom(err.to_string())
-        //         })?;
-        //         Ok(program)
-        // }
-    }
+    // let program: TempProgram<Program> = TempProgram::deserialize(deserializer)?;
+
+    // match program {
+    //     TempProgram::Valid(program) => {
+    //         Ok(program)
+    //     },
+    //     TempProgram::Invalid(value) => {
+    //        //TODO(harsh): remove
+    //        println!("the value is -----> {:?}", value);
+    //     //    let program: Program = serde_json::from_value(value).unwrap();
+    //     let program:  DeprecatedProgram = DeprecatedProgram::deserialize(deserializer).unwrap();
+    //        //TODO(harsh): remove
+    //        println!("the program is Ok");
+    //        Ok(program)
+    //     }
+    //     // TempProgram::SN(program) => {
+    //     //         let program = sn_api_to_cairo_vm_program(program).map_err(|err| {
+    //     //                 DeserializationError::custom(err.to_string())
+    //     //         })?;
+    //     //         Ok(program)
+    //     // }
+    // }
 
     // TODO(harsh): remove
     // Program::deserialize(deserializer)
