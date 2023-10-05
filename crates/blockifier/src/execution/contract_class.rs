@@ -109,7 +109,6 @@ impl ContractClassV0 {
 
 #[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ContractClassV0Inner {
-    // #[serde(serialize_with = "serialize_program", deserialize_with = "deserialize_program")]
     #[serde(deserialize_with = "deserialize_program")]
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPoint>>,
@@ -304,6 +303,7 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<Program, D::Error> {
 
+    // Program::deserialize(deserializer)
 
     #[derive(Serialize, Deserialize)]
     #[serde(untagged)]
@@ -408,55 +408,6 @@ mod test {
         A(Program)
        }
 
-//        let mut hints : HashMap<usize, Vec<HintParams>>= HashMap::new();
-//        let mut hint: HintParams = HintParams { code: String::from("some random code"), accessible_scopes: vec![String::from("abc")],
-//        flow_tracking_data: FlowTrackingData {
-//         ap_tracking: ApTracking{
-//             group: 0,
-//             offset: 5
-//         } ,
-//         reference_ids: HashMap::new()
-//        }}
-//        ;
-
-//        let _ = hint.flow_tracking_data.reference_ids.insert(String::from("some_Key"), 42);
-//        hints.insert(20,vec![hint]);
-
-//        let hints_str = serde_json::to_string_pretty(&hints).unwrap();
-
-//        fs::write("./somerand.json", &hints_str).unwrap();
-//        println!("pertty string is  {:?}", hints_str);
-
-//     let hints_str = r#"
-//     {
-//         "20": [
-//           {
-//             "code": "n -= 1\nids.continue_copying = 1 if n > 0 else 0",
-//             "accessible_scopes": [
-//               "starkware.cairo.common.memcpy",
-//               "starkware.cairo.common.memcpy.memcpy"
-//             ],
-//             "flow_tracking_data": {
-//               "ap_tracking": {
-//                 "group": 2,
-//                 "offset": 5
-//               },
-//               "reference_ids": {
-//                 "starkware.cairo.common.memcpy.memcpy.continue_copying": 1
-//               }
-//             }
-//           }
-//         ]
-//       }
-//    "#;
-
-//        let _: HashMap<usize, Vec<HintParams>> = serde_json::from_str(&hints_str).unwrap();
-
-//     //    println!("val----> {}",val);
-
-//        let b = Program::default();
-//        let _ = serde_json::to_string_pretty(&b).unwrap();
-
        let val = r#"{
         "shared_program_data": {
           "data": [
@@ -512,12 +463,24 @@ mod test {
         "builtins": []
       }
       "#;
+      let _ = val;
 
-      let program: Program = serde_json::from_str(&val).unwrap();
+    //   let contract_class = fs::read("./counter.json").unwrap();
+    //   let contract_class: ContractClassV0 = serde_json::from_slice(&contract_class).unwrap();
 
-      let str = serde_json::to_string_pretty(&program).unwrap();
-      fs::write("./tmp.json", &str).unwrap();
-      let  _ : Program = serde_json::from_str(&val).unwrap();
+
+    //   let serialized_contract_class = serde_json::to_string_pretty(&contract_class.program).unwrap();
+    //   fs::write("./tmp2.json", &serialized_contract_class).unwrap();
+
+
+      let serialized_contract_class = fs::read("./tmp2.json").unwrap();
+      let _: Program = serde_json::from_slice(&serialized_contract_class).unwrap();
+
+    //   let program: Program = serde_json::from_str(&val).unwrap();
+
+    //   let str = serde_json::to_string_pretty(&program).unwrap();
+    //   fs::write("./tmp.json", &str).unwrap();
+    //   let  _ : Program = serde_json::from_str(&val).unwrap();
 
 
         // let mut ds = serde_json::Deserializer::from_str(&val);
