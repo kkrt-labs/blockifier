@@ -14,12 +14,14 @@ use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
-use serde::de::Error as DeserializationError;
+//TODO(harsh): uncomment
+// use serde::de::Error as DeserializationError;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use starknet_api::core::EntryPointSelector;
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPoint, EntryPointOffset, EntryPointType,
-    Program as DeprecatedProgram,
+//TODO(harsh): uncomment
+    // Program as DeprecatedProgram,
 };
 
 use crate::abi::abi_utils::selector_from_name;
@@ -110,7 +112,7 @@ impl ContractClassV0 {
 #[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ContractClassV0Inner {
     // #[serde(serialize_with = "serialize_program", deserialize_with = "deserialize_program")]
-    #[serde(deserialize_with = "deserialize_program")]
+    // #[serde(deserialize_with = "deserialize_program")]
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPoint>>,
 }
@@ -388,7 +390,14 @@ fn convert_entry_points_v1(
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
+    use std::{sync::Arc, fs,
+        // collections::HashMap, fs
+    };
+
+    use cairo_vm::{types::program::Program,
+        // serde::deserialize_program::{HintParams, FlowTrackingData, ApTracking}
+    };
+    use serde::{Serialize, Deserialize};
 
     use crate::execution::contract_class::{ContractClassV1Inner, ContractClassV0, ContractClass};
 
@@ -420,4 +429,132 @@ mod test {
         let value = serde_json::to_string_pretty(&class_inner).unwrap();
         println!("value is -----> {}", value)
     }
+
+    //TODO(harsh): delete this
+    #[test]
+    fn test_deserialization_of_contract_class_v_0() {
+       #[derive(Serialize, Deserialize, Debug)]
+       #[serde(untagged)]
+       enum Tmp{
+        A(Program)
+       }
+
+//        let mut hints : HashMap<usize, Vec<HintParams>>= HashMap::new();
+//        let mut hint: HintParams = HintParams { code: String::from("some random code"), accessible_scopes: vec![String::from("abc")],
+//        flow_tracking_data: FlowTrackingData {
+//         ap_tracking: ApTracking{
+//             group: 0,
+//             offset: 5
+//         } ,
+//         reference_ids: HashMap::new()
+//        }}
+//        ;
+
+//        let _ = hint.flow_tracking_data.reference_ids.insert(String::from("some_Key"), 42);
+//        hints.insert(20,vec![hint]);
+
+//        let hints_str = serde_json::to_string_pretty(&hints).unwrap();
+
+//        fs::write("./somerand.json", &hints_str).unwrap();
+//        println!("pertty string is  {:?}", hints_str);
+
+//     let hints_str = r#"
+//     {
+//         "20": [
+//           {
+//             "code": "n -= 1\nids.continue_copying = 1 if n > 0 else 0",
+//             "accessible_scopes": [
+//               "starkware.cairo.common.memcpy",
+//               "starkware.cairo.common.memcpy.memcpy"
+//             ],
+//             "flow_tracking_data": {
+//               "ap_tracking": {
+//                 "group": 2,
+//                 "offset": 5
+//               },
+//               "reference_ids": {
+//                 "starkware.cairo.common.memcpy.memcpy.continue_copying": 1
+//               }
+//             }
+//           }
+//         ]
+//       }
+//    "#;
+
+//        let _: HashMap<usize, Vec<HintParams>> = serde_json::from_str(&hints_str).unwrap();
+
+//     //    println!("val----> {}",val);
+
+//        let b = Program::default();
+//        let _ = serde_json::to_string_pretty(&b).unwrap();
+
+       let val = r#"{
+        "shared_program_data": {
+          "data": [
+            {
+              "Int": {
+                "value": {
+                  "val": [
+                    2147450879,
+                    67600385
+                  ]
+                }
+              }
+            }
+          ],
+          "hints": {
+            "20": [
+              {
+                "code": "n -= 1\nids.continue_copying = 1 if n > 0 else 0",
+                "accessible_scopes": [
+                  "starkware.cairo.common.memcpy",
+                  "starkware.cairo.common.memcpy.memcpy"
+                ],
+                "flow_tracking_data": {
+                  "ap_tracking": {
+                    "group": 2,
+                    "offset": 5
+                  },
+                  "reference_ids": {
+                    "starkware.cairo.common.memcpy.memcpy.continue_copying": 1
+                  }
+                }
+              }
+            ]
+          },
+          "main": null,
+          "start": null,
+          "end": null,
+          "error_message_attributes": [],
+          "instruction_locations": null,
+          "identifiers": {
+            "__main__.ContractDeployed": {
+              "pc": null,
+              "type_": "namespace",
+              "value": null,
+              "full_name": null,
+              "members": null,
+              "cairo_type": null
+            }
+          },
+          "reference_manager": []
+        },
+        "constants": {},
+        "builtins": []
+      }
+      "#;
+
+      let program: Program = serde_json::from_str(&val).unwrap();
+
+      let str = serde_json::to_string_pretty(&program).unwrap();
+      fs::write("./tmp.json", &str).unwrap();
+      let  _ : Program = serde_json::from_str(&val).unwrap();
+
+
+        // let mut ds = serde_json::Deserializer::from_str(&val);
+        // let _: Tmp = serde_path_to_error::deserialize(&mut ds).unwrap();
+
+    //     println!("c ---> {:?}", c);
+}
+
 }

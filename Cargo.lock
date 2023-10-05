@@ -411,6 +411,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
+ "serde_path_to_error",
  "sha3",
  "starknet-crypto",
  "starknet_api",
@@ -483,7 +484,7 @@ checksum = "3a4f925191b4367301851c6d99b09890311d74b0d43f274c0b34c86d308a3663"
 [[package]]
 name = "cairo-felt"
 version = "0.8.2"
-source = "git+https://github.com/bajpai244/cairo-vm.git?branch=feat/add-serialization-to-program#28bdfd4f719692f264e3a9d9f68e09f6f26b17f4"
+source = "git+https://github.com/bajpai244/cairo-vm.git?branch=feat/add-serialization-to-program#dcea76084adc5ee5a20e4d0356a1671daebcb995"
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -952,7 +953,7 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "0.8.2"
-source = "git+https://github.com/bajpai244/cairo-vm.git?branch=feat/add-serialization-to-program#28bdfd4f719692f264e3a9d9f68e09f6f26b17f4"
+source = "git+https://github.com/bajpai244/cairo-vm.git?branch=feat/add-serialization-to-program#dcea76084adc5ee5a20e4d0356a1671daebcb995"
 dependencies = [
  "anyhow",
  "bincode",
@@ -2956,6 +2957,16 @@ checksum = "6b420ce6e3d8bd882e9b243c6eed35dbc9a6110c9769e74b584e0d68d1f20c65"
 dependencies = [
  "itoa",
  "ryu",
+ "serde",
+]
+
+[[package]]
+name = "serde_path_to_error"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4beec8bce849d58d06238cb50db2e1c417cfeafa4c63f692b15c82b7c80f8335"
+dependencies = [
+ "itoa",
  "serde",
 ]
 
