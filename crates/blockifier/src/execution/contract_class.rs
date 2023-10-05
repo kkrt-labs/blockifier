@@ -6,11 +6,12 @@ use cairo_felt::Felt252;
 use cairo_lang_casm;
 use cairo_lang_casm::hints::Hint;
 use cairo_lang_starknet::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
+use cairo_vm::hint_processor::hint_processor_definition::HintReference;
 use cairo_vm::serde::deserialize_program::{
-    ApTracking, FlowTrackingData, HintParams, ReferenceManager,
+    ApTracking, FlowTrackingData, HintParams, ReferenceManager, Attribute, InstructionLocation, Identifier, BuiltinName,
 };
 use cairo_vm::types::errors::program_errors::ProgramError;
-use cairo_vm::types::program::Program;
+use cairo_vm::types::program::{Program, SharedProgramData};
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
@@ -306,19 +307,66 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
     // Program::deserialize(deserializer)
 
     #[derive(Serialize, Deserialize)]
-    #[serde(untagged)]
-    enum TmpProgram {
-        CairoVM(Program),
-        SNProgram(DeprecatedProgram)
+    struct TmpSharedProgram {
+        data: Vec<MaybeRelocatable>,
+        hints: HashMap<String, Vec<HintParams>>,
+        main: Option<usize>,
+        //start and end labels will only be used in proof-mode
+        start: Option<usize>,
+        end: Option<usize>,
+        error_message_attributes: Vec<Attribute>,
+        instruction_locations: Option<HashMap<usize, InstructionLocation>>,
+        identifiers: HashMap<String, Identifier>,
+        reference_manager: Vec<HintReference>,
     }
 
-    let program: TmpProgram = TmpProgram::deserialize(deserializer)?;
+
+    #[derive(Serialize, Deserialize)]
+    struct TmpProgram {
+        pub shared_program_data: TmpSharedProgram,
+        pub constants: HashMap<String, Felt252>,
+        pub builtins: Vec<BuiltinName>,
+    }
+
+    #[derive(Serialize, Deserialize)]
+    #[serde(untagged)]
+    enum Tmp {
+        CairoVM(TmpProgram),
+       SNProgram(DeprecatedProgram)
+    }
+
+    let program: Tmp = Tmp::deserialize(deserializer)?;
 
     match program {
-       TmpProgram::CairoVM(program) => {
+       Tmp::CairoVM(tmp_program) => {
+            let mut hints: HashMap<usize, Vec<HintParams>> = HashMap::new();
+
+            tmp_program.shared_program_data.hints.into_iter().for_each(|(k,v)|{
+                let key = usize::from_str_radix(&k, 10).unwrap_or_else(|error|{
+                    //TODO(harsh): check if this panic can be avoided
+                    panic!("failed to convert value {} to usize, \n error {}", k, error);
+                });
+
+                hints.insert(key, v);
+            });
+
+            let shared_program_data = SharedProgramData {
+                data: tmp_program.shared_program_data.data,
+                hints,
+                main: tmp_program.shared_program_data.main,
+                start: tmp_program.shared_program_data.start,
+                end: tmp_program.shared_program_data.end,
+                error_message_attributes: tmp_program.shared_program_data.error_message_attributes,
+                identifiers: tmp_program.shared_program_data.identifiers,
+                instruction_locations: tmp_program.shared_program_data.instruction_locations,
+                reference_manager: tmp_program.shared_program_data.reference_manager
+            };
+
+
+            let program = Program { shared_program_data: Arc::new(shared_program_data), constants:tmp_program.constants, builtins:tmp_program.builtins };
             Ok(program)
-       }
-       TmpProgram::SNProgram(deprecated_program) => {
+       },
+       Tmp::SNProgram(deprecated_program) => {
         sn_api_to_cairo_vm_program(deprecated_program)
         .map_err(|err| DeserializationError::custom(err.to_string()))
        }
@@ -360,6 +408,9 @@ fn convert_entry_points_v1(
 #[cfg(test)]
 mod test {
     use std::{sync::Arc, fs,
+        // fs, collections::HashMap,
+        // hint,
+        // collections::HashMap, hint,
         // collections::HashMap, fs
     };
 
@@ -408,79 +459,161 @@ mod test {
         A(Program)
        }
 
-       let val = r#"{
-        "shared_program_data": {
-          "data": [
-            {
-              "Int": {
-                "value": {
-                  "val": [
-                    2147450879,
-                    67600385
-                  ]
-                }
-              }
-            }
-          ],
-          "hints": {
-            "20": [
-              {
-                "code": "n -= 1\nids.continue_copying = 1 if n > 0 else 0",
-                "accessible_scopes": [
-                  "starkware.cairo.common.memcpy",
-                  "starkware.cairo.common.memcpy.memcpy"
+       let val = r#"
+       {
+        "program": {
+            "shared_program_data": {
+                "data": [
+                    {
+                        "Int": {
+                            "value": {
+                                "val": [
+                                    2147450879,
+                                    67600385
+                                ]
+                            }
+                        }
+                    }
                 ],
-                "flow_tracking_data": {
-                  "ap_tracking": {
-                    "group": 2,
-                    "offset": 5
-                  },
-                  "reference_ids": {
-                    "starkware.cairo.common.memcpy.memcpy.continue_copying": 1
-                  }
-                }
-              }
-            ]
-          },
-          "main": null,
-          "start": null,
-          "end": null,
-          "error_message_attributes": [],
-          "instruction_locations": null,
-          "identifiers": {
-            "__main__.ContractDeployed": {
-              "pc": null,
-              "type_": "namespace",
-              "value": null,
-              "full_name": null,
-              "members": null,
-              "cairo_type": null
-            }
-          },
-          "reference_manager": []
+                "hints": {
+                    "20": [
+                        {
+                            "code": "n -= 1\nids.continue_copying = 1 if n > 0 else 0",
+                            "accessible_scopes": [
+                                "starkware.cairo.common.memcpy",
+                                "starkware.cairo.common.memcpy.memcpy"
+                            ],
+                            "flow_tracking_data": {
+                                "ap_tracking": {
+                                    "group": 2,
+                                    "offset": 5
+                                },
+                                "reference_ids": {
+                                    "starkware.cairo.common.memcpy.memcpy.continue_copying": 1
+                                }
+                            }
+                        }
+                    ]
+                },
+                "main": null,
+                "start": null,
+                "end": null,
+                "error_message_attributes": [],
+                "instruction_locations": null,
+                "identifiers": {
+                    "__main__.ContractDeployed": {
+                        "pc": null,
+                        "type_": "namespace",
+                        "value": null,
+                        "full_name": null,
+                        "members": null,
+                        "cairo_type": null
+                    }
+                },
+                "reference_manager": []
+            },
+            "constants": {},
+            "builtins": []
         },
-        "constants": {},
-        "builtins": []
-      }
+        "entry_points_by_type": {
+            "EXTERNAL": [
+                {
+                    "selector": "0x3b82f69851fa1625b367ea6c116252a84257da483dcec4d4e4bc270eb5c70a7",
+                    "offset": "0x179"
+                }
+            ],
+            "L1_HANDLER": [],
+            "CONSTRUCTOR": []
+        }
+    }
       "#;
-      let _ = val;
 
-    //   let contract_class = fs::read("./counter.json").unwrap();
-    //   let contract_class: ContractClassV0 = serde_json::from_slice(&contract_class).unwrap();
+      let _: ContractClassV0 = serde_json::from_str(&val).unwrap();
+
+      let contract_class = fs::read("./counter.json").unwrap();
+      let _: ContractClassV0 = serde_json::from_slice(&contract_class).unwrap();
 
 
     //   let serialized_contract_class = serde_json::to_string_pretty(&contract_class.program).unwrap();
     //   fs::write("./tmp2.json", &serialized_contract_class).unwrap();
 
 
-      let serialized_contract_class = fs::read("./tmp2.json").unwrap();
-      let _: Program = serde_json::from_slice(&serialized_contract_class).unwrap();
+    //   let serialized_contract_class = fs::read("./tmp2.json").unwrap();
+    //   let _: ContractClass = serde_json::from_slice(&serialized_contract_class).unwrap();
+
+    //   let _: Program = serde_json::from_slice(&serialized_contract_class).unwrap();
+
+
+    // #[derive(Deserialize)]
+    // #[serde(untagged)]
+    // enum TmpProgram {
+    //     CairoVM(Program),
+    // }
+
+    // let val = TmpProgram::CairoVM(Program::default());
+    // let str = serde_json::to_string_pretty(&val).unwrap();
+    // fs::write("./tmp2.json", &str).unwrap();
+
+    // let str = fs::read("./tmp2.json").unwrap();
+    // let _: Program = serde_json::from_slice(&str).unwrap();
+
+    // let hint_str = r#"{
+    //     "20":[
+    //       {
+    //         "code": "n -= 1\nids.continue_copying = 1 if n > 0 else 0",
+    //         "accessible_scopes": [
+    //           "starkware.cairo.common.memcpy",
+    //           "starkware.cairo.common.memcpy.memcpy"
+    //         ],
+    //         "flow_tracking_data": {
+    //           "ap_tracking": {
+    //             "group": 2,
+    //             "offset": 5
+    //           },
+    //           "reference_ids": {
+    //             "starkware.cairo.common.memcpy.memcpy.continue_copying": 1
+    //           }
+    //         }
+    //       }
+    //     ]
+    //   }"#;
+
+    //   #[derive(Serialize, Deserialize)]
+    //   #[serde(untagged)]
+    //   enum TmpHint {
+    //     Fine(HashMap<usize, Vec<HintParams>>)
+    //   }
+
+
+    //   let _: HashMap<usize, Vec<HintParams>> = serde_json::from_str(&hint_str).unwrap();
+    //   let _: TmpHint= serde_json::from_str(&hint_str).unwrap();
+
+    //   let hint: HashMap<usize, Vec<HintParams>> = serde_json::from_str(&hint_str).unwrap();
+    //   let tmp = TmpHint::Fine(hint);
+    //   let tmp_str = serde_json::to_string_pretty(&tmp).unwrap();
+    //   fs::write("./tmp3.json", &tmp_str).unwrap();
+
+    //   let _: TmpHint = serde_json::from_str(&tmp_str).unwrap();
+
+    // #[derive(Serialize,Deserialize)]
+    // #[serde(untagged)]
+    // enum TmpHintParam {
+    //     Param(HintParams)
+    // }
+
+    // let hint_param: HintParams = serde_json::from_str(&hint_str).unwrap();
+    // let tmp_hint_param = TmpHintParam::Param(hint_param);
+
+    // let tmp_hint_param_string = serde_json::to_string_pretty(&tmp_hint_param).unwrap();
+    // fs::write("./tmp3.json", &tmp_hint_param_string).unwrap();
+
+    // let _: TmpHintParam = serde_json::from_str(&tmp_hint_param_string).unwrap();
 
     //   let program: Program = serde_json::from_str(&val).unwrap();
 
     //   let str = serde_json::to_string_pretty(&program).unwrap();
     //   fs::write("./tmp.json", &str).unwrap();
-    //   let  _ : Program = serde_json::from_str(&val).unwrap();
+    //   let  _ : TmpProgram = serde_json::from_str(&str).unwrap();
 
 
         // let mut ds = serde_json::Deserializer::from_str(&val);
