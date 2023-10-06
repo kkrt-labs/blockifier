@@ -48,5 +48,5 @@ tempfile = "3.7.0"
 thiserror = "1.0.37"
 
 [patch.crates-io]
-cairo-felt = { git = "https://github.com/bajpai244/cairo-vm.git", branch = "feat/add-serialization-to-program" }
-cairo-vm = { git = "https://github.com/bajpai244/cairo-vm.git", branch = "feat/add-serialization-to-program" }
+cairo-felt = { git = "https://github.com/kkrt-labs/cairo-vm.git", branch = "v0.8.2" }
+cairo-vm = { git = "https://github.com/kkrt-labs/cairo-vm.git", branch = "v0.8.2" }
