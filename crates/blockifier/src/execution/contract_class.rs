@@ -397,17 +397,7 @@ fn convert_entry_points_v1(
 
 #[cfg(test)]
 mod test {
-    use std::{
-        fs,
-        // fs, collections::HashMap,
-        // hint,
-        // collections::HashMap, hint,
-        // collections::HashMap, fs
-        sync::Arc,
-    };
-
-    use cairo_vm::types::program::Program;
-    use serde::{Deserialize, Serialize};
+    use std::{fs, sync::Arc};
 
     use crate::execution::contract_class::{ContractClass, ContractClassV0, ContractClassV1Inner};
 
@@ -440,170 +430,15 @@ mod test {
         println!("value is -----> {}", value)
     }
 
-    //TODO(harsh): delete this
     #[test]
     fn test_deserialization_of_contract_class_v_0() {
-        #[derive(Serialize, Deserialize, Debug)]
-        #[serde(untagged)]
-        enum Tmp {
-            A(Program),
-        }
-
-        let val = r#"
-       {
-        "program": {
-            "shared_program_data": {
-                "data": [
-                    {
-                        "Int": {
-                            "value": {
-                                "val": [
-                                    2147450879,
-                                    67600385
-                                ]
-                            }
-                        }
-                    }
-                ],
-                "hints": {
-                    "20": [
-                        {
-                            "code": "n -= 1\nids.continue_copying = 1 if n > 0 else 0",
-                            "accessible_scopes": [
-                                "starkware.cairo.common.memcpy",
-                                "starkware.cairo.common.memcpy.memcpy"
-                            ],
-                            "flow_tracking_data": {
-                                "ap_tracking": {
-                                    "group": 2,
-                                    "offset": 5
-                                },
-                                "reference_ids": {
-                                    "starkware.cairo.common.memcpy.memcpy.continue_copying": 1
-                                }
-                            }
-                        }
-                    ]
-                },
-                "main": null,
-                "start": null,
-                "end": null,
-                "error_message_attributes": [],
-                "instruction_locations": null,
-                "identifiers": {
-                    "__main__.ContractDeployed": {
-                        "pc": null,
-                        "type_": "namespace",
-                        "value": null,
-                        "full_name": null,
-                        "members": null,
-                        "cairo_type": null
-                    }
-                },
-                "reference_manager": []
-            },
-            "constants": {},
-            "builtins": []
-        },
-        "entry_points_by_type": {
-            "EXTERNAL": [
-                {
-                    "selector": "0x3b82f69851fa1625b367ea6c116252a84257da483dcec4d4e4bc270eb5c70a7",
-                    "offset": "0x179"
-                }
-            ],
-            "L1_HANDLER": [],
-            "CONSTRUCTOR": []
-        }
-    }
-      "#;
-
-        let _: ContractClassV0 = serde_json::from_str(&val).unwrap();
-
         let contract_class = fs::read("./counter.json").unwrap();
-        let _: ContractClassV0 = serde_json::from_slice(&contract_class).unwrap();
+        let contract_class: ContractClassV0 = serde_json::from_slice(&contract_class)
+            .expect("failed to deserialize contract class from file");
 
-        //   let serialized_contract_class = serde_json::to_string_pretty(&contract_class.program).unwrap();
-        //   fs::write("./tmp2.json", &serialized_contract_class).unwrap();
-
-        //   let serialized_contract_class = fs::read("./tmp2.json").unwrap();
-        //   let _: ContractClass = serde_json::from_slice(&serialized_contract_class).unwrap();
-
-        //   let _: Program = serde_json::from_slice(&serialized_contract_class).unwrap();
-
-        // #[derive(Deserialize)]
-        // #[serde(untagged)]
-        // enum TmpProgram {
-        //     CairoVM(Program),
-        // }
-
-        // let val = TmpProgram::CairoVM(Program::default());
-        // let str = serde_json::to_string_pretty(&val).unwrap();
-        // fs::write("./tmp2.json", &str).unwrap();
-
-        // let str = fs::read("./tmp2.json").unwrap();
-        // let _: Program = serde_json::from_slice(&str).unwrap();
-
-        // let hint_str = r#"{
-        //     "20":[
-        //       {
-        //         "code": "n -= 1\nids.continue_copying = 1 if n > 0 else 0",
-        //         "accessible_scopes": [
-        //           "starkware.cairo.common.memcpy",
-        //           "starkware.cairo.common.memcpy.memcpy"
-        //         ],
-        //         "flow_tracking_data": {
-        //           "ap_tracking": {
-        //             "group": 2,
-        //             "offset": 5
-        //           },
-        //           "reference_ids": {
-        //             "starkware.cairo.common.memcpy.memcpy.continue_copying": 1
-        //           }
-        //         }
-        //       }
-        //     ]
-        //   }"#;
-
-        //   #[derive(Serialize, Deserialize)]
-        //   #[serde(untagged)]
-        //   enum TmpHint {
-        //     Fine(HashMap<usize, Vec<HintParams>>)
-        //   }
-
-        //   let _: HashMap<usize, Vec<HintParams>> = serde_json::from_str(&hint_str).unwrap();
-        //   let _: TmpHint= serde_json::from_str(&hint_str).unwrap();
-
-        //   let hint: HashMap<usize, Vec<HintParams>> = serde_json::from_str(&hint_str).unwrap();
-        //   let tmp = TmpHint::Fine(hint);
-        //   let tmp_str = serde_json::to_string_pretty(&tmp).unwrap();
-        //   fs::write("./tmp3.json", &tmp_str).unwrap();
-
-        //   let _: TmpHint = serde_json::from_str(&tmp_str).unwrap();
-
-        // #[derive(Serialize,Deserialize)]
-        // #[serde(untagged)]
-        // enum TmpHintParam {
-        //     Param(HintParams)
-        // }
-
-        // let hint_param: HintParams = serde_json::from_str(&hint_str).unwrap();
-        // let tmp_hint_param = TmpHintParam::Param(hint_param);
-
-        // let tmp_hint_param_string = serde_json::to_string_pretty(&tmp_hint_param).unwrap();
-        // fs::write("./tmp3.json", &tmp_hint_param_string).unwrap();
-
-        // let _: TmpHintParam = serde_json::from_str(&tmp_hint_param_string).unwrap();
-
-        //   let program: Program = serde_json::from_str(&val).unwrap();
-
-        //   let str = serde_json::to_string_pretty(&program).unwrap();
-        //   fs::write("./tmp.json", &str).unwrap();
-        //   let  _ : TmpProgram = serde_json::from_str(&str).unwrap();
-
-        // let mut ds = serde_json::Deserializer::from_str(&val);
-        // let _: Tmp = serde_path_to_error::deserialize(&mut ds).unwrap();
-
-        //     println!("c ---> {:?}", c);
+        let serialized_contract_class = serde_json::to_string_pretty(&contract_class)
+            .expect("failed to serialize contract class");
+        let _: ContractClassV0 = serde_json::from_str(&serialized_contract_class)
+            .expect("failed to deserialize contract class from serialized string");
     }
 }
