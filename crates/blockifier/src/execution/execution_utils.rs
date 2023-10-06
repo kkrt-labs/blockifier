@@ -154,7 +154,6 @@ pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program,
     Ok(program)
 }
 
-
 #[derive(Debug)]
 // Invariant: read-only.
 pub struct ReadOnlySegment {
