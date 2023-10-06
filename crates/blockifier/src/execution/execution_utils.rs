@@ -12,7 +12,6 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
 use cairo_vm::vm::runners::cairo_runner::CairoArg;
 use cairo_vm::vm::vm_core::VirtualMachine;
-use itertools::Itertools;
 use num_bigint::BigUint;
 use starknet_api::core::ClassHash;
 use starknet_api::deprecated_contract_class::Program as DeprecatedProgram;
@@ -155,52 +154,6 @@ pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program,
     Ok(program)
 }
 
-
-
-
-// TODO(Elin,01/05/2023): aim to use LC's implementation once it's in a separate crate.
-pub fn cairo_vm_to_sn_api_program(program: &Program) -> Result<DeprecatedProgram, ProgramError> {
-
-    let mut program_identifiers: HashMap<&str, &Identifier> = HashMap::default();
-    program.iter_identifiers().for_each(|(cairo_type, identifier)|{
-        program_identifiers.insert(cairo_type, identifier);
-    });
-    let identifiers = serde_json::to_value(program_identifiers)?;
-
-    let program_builtins = program.iter_builtins().cloned().collect_vec();
-    let builtins = serde_json::to_value(program_builtins)?;
-
-    let program_data = program.iter_data().cloned().collect_vec();
-    let data =  serde_json::to_value(program_data)?;
-
-    let mut program_hints: HashMap<&usize, &Vec<HintParams>> = HashMap::default();
-    program.iter_hints().for_each(|(k, v)|{
-        program_hints.insert(k, v);
-    });
-    let hints = serde_json::to_value(program_hints)?;
-
-    let program_attributes = program.iter_error_message_attributes().cloned().collect_vec();
-    let attributes = serde_json::to_value(program_attributes)?;
-
-    let program_reference_manager = program.iter_reference_manager().cloned().collect_vec();
-    let reference_manager = serde_json::to_value(program_reference_manager)?;
-
-    let prime = serde_json::to_value(program.prime())?;
-
-    let deprecated_program =  DeprecatedProgram{
-        attributes,
-        builtins,
-        compiler_version: serde_json::Value::default(),
-        data,
-        debug_info: serde_json::Value::default(),
-        hints,
-        identifiers,
-        main_scope: serde_json::Value::default(),
-        prime,
-        reference_manager,
-    };
-    Ok(deprecated_program)
-}
 
 #[derive(Debug)]
 // Invariant: read-only.
