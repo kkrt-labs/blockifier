@@ -484,7 +484,7 @@ checksum = "3a4f925191b4367301851c6d99b09890311d74b0d43f274c0b34c86d308a3663"
 [[package]]
 name = "cairo-felt"
 version = "0.8.2"
-source = "git+https://github.com/bajpai244/cairo-vm.git?branch=feat/add-serialization-to-program#ab29e1af5790f8dbbf1d2c4965d5581fcc25a750"
+source = "git+https://github.com/bajpai244/cairo-vm.git?branch=feat/add-serialization-to-program#4c58d760262cb1435c6100c3f7a0dd201bac4c29"
 dependencies = [
  "lazy_static",
  "num-bigint",
@@ -953,7 +953,7 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "0.8.2"
-source = "git+https://github.com/bajpai244/cairo-vm.git?branch=feat/add-serialization-to-program#ab29e1af5790f8dbbf1d2c4965d5581fcc25a750"
+source = "git+https://github.com/bajpai244/cairo-vm.git?branch=feat/add-serialization-to-program#4c58d760262cb1435c6100c3f7a0dd201bac4c29"
 dependencies = [
  "anyhow",
  "bincode",
