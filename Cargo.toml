@@ -46,3 +46,7 @@ strum_macros = "0.24.3"
 test-case = "2.2.2"
 tempfile = "3.7.0"
 thiserror = "1.0.37"
+
+[patch.crates-io]
+cairo-felt = { git = "https://github.com/kkrt-labs/cairo-vm.git", branch = "v0.8.2" }
+cairo-vm = { git = "https://github.com/kkrt-labs/cairo-vm.git", branch = "v0.8.2" }
