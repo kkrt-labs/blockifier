@@ -314,7 +314,8 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
     #[derive(Serialize, Deserialize)]
     #[serde(untagged)]
     enum Tmp {
-        CairoVM(TmpProgram),
+        /// Box the variant in order to reduce the size of the enum (clippy suggestion).
+        CairoVM(Box<TmpProgram>),
         SNProgram(DeprecatedProgram),
     }
 
@@ -327,7 +328,7 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
                 .hints
                 .into_iter()
                 .map(|(k, v)| {
-                    let key = usize::from_str_radix(&k, 10).map_err(|error| {
+                    let key = k.parse::<usize>().map_err(|error| {
                         de::Error::custom(format!(
                             "failed to convert value {} to usize, \n error {}",
                             k, error
