@@ -314,7 +314,7 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
     #[derive(Serialize, Deserialize)]
     #[serde(untagged)]
     enum Tmp {
-        CairoVM(TmpProgram),
+        CairoVM(Box<TmpProgram>),
         SNProgram(DeprecatedProgram),
     }
 
@@ -327,7 +327,7 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
                 .hints
                 .into_iter()
                 .map(|(k, v)| {
-                    let key = usize::from_str_radix(&k, 10).map_err(|error| {
+                    let key = k.parse::<usize>().map_err(|error| {
                         de::Error::custom(format!(
                             "failed to convert value {} to usize, \n error {}",
                             k, error
@@ -401,7 +401,7 @@ mod test {
 
     #[test]
     fn test_deserialization_of_contract_class_v_0() {
-        let contract_class = fs::read("./counter.json").unwrap();
+        let contract_class = fs::read("./tests/counter.json").unwrap();
         let contract_class: ContractClassV0 = serde_json::from_slice(&contract_class)
             .expect("failed to deserialize contract class from file");
 
