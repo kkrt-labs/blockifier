@@ -253,10 +253,12 @@ fn test_infinite_recursion(
     if success {
         assert!(tx_execution_info.revert_error.is_none());
     } else {
-        assert!(tx_execution_info
-            .revert_error
-            .unwrap()
-            .contains("RunResources has no remaining steps."));
+        assert!(
+            tx_execution_info
+                .revert_error
+                .unwrap()
+                .contains("RunResources has no remaining steps.")
+        );
     }
 }
 
@@ -982,10 +984,9 @@ fn test_insufficient_max_fee_reverts(block_context: BlockContext) {
     .unwrap();
     assert!(tx_execution_info3.is_reverted());
     assert!(tx_execution_info3.actual_fee == actual_fee_depth1);
-    assert!(tx_execution_info3
-        .revert_error
-        .unwrap()
-        .contains("RunResources has no remaining steps."));
+    assert!(
+        tx_execution_info3.revert_error.unwrap().contains("RunResources has no remaining steps.")
+    );
 }
 
 fn calldata_for_write_and_transfer(

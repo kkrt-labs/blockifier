@@ -401,7 +401,7 @@ mod test {
 
     #[test]
     fn test_deserialization_of_contract_class_v_0() {
-        let contract_class = fs::read("./counter.json").unwrap();
+        let contract_class = fs::read("./tests/counter.json").unwrap();
         let contract_class: ContractClassV0 = serde_json::from_slice(&contract_class)
             .expect("failed to deserialize contract class from file");
 
