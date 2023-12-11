@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -12,12 +12,12 @@ use cairo_vm::serde::deserialize_program::{
     InstructionLocation, ReferenceManager,
 };
 use cairo_vm::types::errors::program_errors::ProgramError;
-use cairo_vm::types::program::{Program, SharedProgramData};
+use cairo_vm::types::program::{HintsCollection, Program, SharedProgramData};
 use cairo_vm::types::relocatable::MaybeRelocatable;
 use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources as VmExecutionResources;
 use serde::de::{self, Error as DeserializationError};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use starknet_api::core::EntryPointSelector;
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPoint, EntryPointOffset, EntryPointType,
@@ -109,7 +109,7 @@ impl ContractClassV0 {
 
 #[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ContractClassV0Inner {
-    #[serde(deserialize_with = "deserialize_program")]
+    #[serde(with = "serde_program")]
     pub program: Program,
     pub entry_points_by_type: HashMap<EntryPointType, Vec<EntryPoint>>,
 }
@@ -285,16 +285,16 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
 
 // V0 utilities.
 
-/// Converts the program type from SN API into a Cairo VM-compatible type.
-pub fn deserialize_program<'de, D: Deserializer<'de>>(
-    deserializer: D,
-) -> Result<Program, D::Error> {
+mod serde_program {
+    use super::*;
+
     // We have this because `hints` field is a hashmap from <uisze, HintParams>
-    // When deserializing from JSON, for untagged enum it will only match for <string, HintParams>
-    #[derive(Serialize, Deserialize)]
+    // When deserializing from JSON, for untagged enum it will only match for <string,
+    // HintParams>
+    #[derive(Deserialize, Serialize)]
     struct TmpSharedProgram {
         data: Vec<MaybeRelocatable>,
-        hints: HashMap<String, Vec<HintParams>>,
+        hints: BTreeMap<String, Vec<HintParams>>,
         main: Option<usize>,
         start: Option<usize>,
         end: Option<usize>,
@@ -304,64 +304,107 @@ pub fn deserialize_program<'de, D: Deserializer<'de>>(
         reference_manager: Vec<HintReference>,
     }
 
-    #[derive(Serialize, Deserialize)]
+    impl From<SharedProgramData> for TmpSharedProgram {
+        fn from(shared_program_data: SharedProgramData) -> Self {
+            Self {
+                data: shared_program_data.data,
+                hints: Into::<BTreeMap<usize, Vec<HintParams>>>::into(
+                    &shared_program_data.hints_collection,
+                )
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect(),
+                main: shared_program_data.main,
+                start: shared_program_data.start,
+                end: shared_program_data.end,
+                error_message_attributes: shared_program_data.error_message_attributes,
+                instruction_locations: shared_program_data.instruction_locations,
+                identifiers: shared_program_data.identifiers,
+                reference_manager: shared_program_data.reference_manager,
+            }
+        }
+    }
+
+    #[derive(Deserialize, Serialize)]
     struct TmpProgram {
         pub shared_program_data: TmpSharedProgram,
         pub constants: HashMap<String, Felt252>,
         pub builtins: Vec<BuiltinName>,
     }
 
-    #[derive(Serialize, Deserialize)]
-    #[serde(untagged)]
-    enum Tmp {
-        /// Box the variant in order to reduce the size of the enum (clippy suggestion).
-        CairoVM(Box<TmpProgram>),
-        SNProgram(DeprecatedProgram),
+    pub(crate) fn serialize<S>(program: &Program, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let shared_program_data = program.shared_program_data.as_ref().clone().into();
+        let constants = program.constants.clone();
+        let builtins = program.builtins.clone();
+
+        let tmp_program = TmpProgram { shared_program_data, constants, builtins };
+
+        tmp_program.serialize(serializer)
     }
 
-    let program: Tmp = Tmp::deserialize(deserializer)?;
-
-    match program {
-        Tmp::CairoVM(tmp_program) => {
-            let hints: Result<HashMap<usize, Vec<HintParams>>, D::Error> = tmp_program
-                .shared_program_data
-                .hints
-                .into_iter()
-                .map(|(k, v)| {
-                    let key = k.parse::<usize>().map_err(|error| {
-                        de::Error::custom(format!(
-                            "failed to convert value {} to usize, \n error {}",
-                            k, error
-                        ))
-                    })?;
-
-                    Ok((key, v))
-                })
-                .collect();
-
-            let hints = hints?;
-
-            let shared_program_data = SharedProgramData {
-                data: tmp_program.shared_program_data.data,
-                hints,
-                main: tmp_program.shared_program_data.main,
-                start: tmp_program.shared_program_data.start,
-                end: tmp_program.shared_program_data.end,
-                error_message_attributes: tmp_program.shared_program_data.error_message_attributes,
-                identifiers: tmp_program.shared_program_data.identifiers,
-                instruction_locations: tmp_program.shared_program_data.instruction_locations,
-                reference_manager: tmp_program.shared_program_data.reference_manager,
-            };
-
-            let program = Program {
-                shared_program_data: Arc::new(shared_program_data),
-                constants: tmp_program.constants,
-                builtins: tmp_program.builtins,
-            };
-            Ok(program)
+    /// Converts the program type from SN API into a Cairo VM-compatible type.
+    pub(crate) fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Program, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Tmp {
+            /// Box the variant in order to reduce the size of the enum (clippy suggestion).
+            CairoVM(Box<TmpProgram>),
+            SNProgram(DeprecatedProgram),
         }
-        Tmp::SNProgram(deprecated_program) => sn_api_to_cairo_vm_program(deprecated_program)
-            .map_err(|err| DeserializationError::custom(err.to_string())),
+
+        let program: Tmp = Tmp::deserialize(deserializer)?;
+
+        match program {
+            Tmp::CairoVM(tmp_program) => {
+                let hints: BTreeMap<usize, Vec<HintParams>> = tmp_program
+                    .shared_program_data
+                    .hints
+                    .into_iter()
+                    .map(|(k, v)| {
+                        let key = k.parse::<usize>().map_err(|error| {
+                            de::Error::custom(format!(
+                                "failed to convert value {} to usize, \n error {}",
+                                k, error
+                            ))
+                        })?;
+
+                        Ok((key, v))
+                    })
+                    .collect::<Result<_, D::Error>>()?;
+
+                let hints_collection =
+                    HintsCollection::new(&hints, tmp_program.shared_program_data.data.len())
+                        .map_err(|err| de::Error::custom(err.to_string()))?;
+
+                let shared_program_data = SharedProgramData {
+                    data: tmp_program.shared_program_data.data,
+                    hints_collection,
+                    main: tmp_program.shared_program_data.main,
+                    start: tmp_program.shared_program_data.start,
+                    end: tmp_program.shared_program_data.end,
+                    error_message_attributes: tmp_program
+                        .shared_program_data
+                        .error_message_attributes,
+                    identifiers: tmp_program.shared_program_data.identifiers,
+                    instruction_locations: tmp_program.shared_program_data.instruction_locations,
+                    reference_manager: tmp_program.shared_program_data.reference_manager,
+                };
+
+                let program = Program {
+                    shared_program_data: Arc::new(shared_program_data),
+                    constants: tmp_program.constants,
+                    builtins: tmp_program.builtins,
+                };
+                Ok(program)
+            }
+            Tmp::SNProgram(deprecated_program) => sn_api_to_cairo_vm_program(deprecated_program)
+                .map_err(|err| DeserializationError::custom(err.to_string())),
+        }
     }
 }
 
