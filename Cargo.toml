@@ -24,7 +24,9 @@ cairo-lang-casm = { git = "https://github.com/kkrt-labs/cairo.git", branch = "v2
 cairo-lang-runner = { git = "https://github.com/kkrt-labs/cairo.git", branch = "v2.4.0", default-features = false }
 cairo-lang-starknet = { git = "https://github.com/kkrt-labs/cairo.git", branch = "v2.4.0", default-features = false }
 cairo-lang-utils = { git = "https://github.com/kkrt-labs/cairo.git", branch = "v2.4.0", default-features = false }
-cairo-vm = { git = "https://github.com/kkrt-labs/cairo-vm.git", branch = "v0.9.1", default-features = false }
+cairo-vm = { git = "https://github.com/kkrt-labs/cairo-vm.git", branch = "v0.9.1", default-features = false, features = [
+  "print",
+] }
 criterion = "0.3"
 ctor = "0.2.0"
 derive_more = "0.99.17"
