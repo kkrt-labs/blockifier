@@ -30,7 +30,6 @@ pub struct BlockContext {
     pub(crate) chain_info: ChainInfo,
     pub(crate) versioned_constants: VersionedConstants,
     pub(crate) bouncer_config: BouncerConfig,
-    pub(crate) concurrency_mode: bool,
 }
 
 impl BlockContext {
@@ -39,15 +38,8 @@ impl BlockContext {
         chain_info: ChainInfo,
         versioned_constants: VersionedConstants,
         bouncer_config: BouncerConfig,
-        concurrency_mode: bool,
     ) -> Self {
-        BlockContext {
-            block_info,
-            chain_info,
-            versioned_constants,
-            bouncer_config,
-            concurrency_mode,
-        }
+        BlockContext { block_info, chain_info, versioned_constants, bouncer_config }
     }
 
     pub fn block_info(&self) -> &BlockInfo {
@@ -91,7 +83,7 @@ impl ChainInfo {
 impl Default for ChainInfo {
     fn default() -> Self {
         ChainInfo {
-            chain_id: ChainId("0x0".to_string()),
+            chain_id: ChainId::Other("0x0".to_string()),
             fee_token_addresses: FeeTokenAddresses::default(),
         }
     }

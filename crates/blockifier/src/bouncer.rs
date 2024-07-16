@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use cairo_vm::serde::deserialize_program::BuiltinName;
-use cairo_vm::vm::runners::builtin_runner::HASH_BUILTIN_NAME;
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde::{Deserialize, Serialize};
 use starknet_api::core::ClassHash;
@@ -36,20 +35,16 @@ macro_rules! impl_checked_sub {
     };
 }
 
-pub type HashMapWrapper = HashMap<String, usize>;
+pub type HashMapWrapper = HashMap<BuiltinName, usize>;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct BouncerConfig {
     pub block_max_capacity: BouncerWeights,
-    pub block_max_capacity_with_keccak: BouncerWeights,
 }
 
 impl BouncerConfig {
     pub fn max() -> Self {
-        Self {
-            block_max_capacity_with_keccak: BouncerWeights::max(true),
-            block_max_capacity: BouncerWeights::max(false),
-        }
+        Self { block_max_capacity: BouncerWeights::max() }
     }
 
     pub fn empty() -> Self {
@@ -57,13 +52,7 @@ impl BouncerConfig {
     }
 
     pub fn has_room(&self, weights: BouncerWeights) -> bool {
-        let max_capacity = if weights.builtin_count.keccak > 0 {
-            self.block_max_capacity_with_keccak
-        } else {
-            self.block_max_capacity
-        };
-
-        max_capacity.has_room(weights)
+        self.block_max_capacity.has_room(weights)
     }
 }
 
@@ -103,14 +92,14 @@ impl BouncerWeights {
         self.checked_sub(other).is_some()
     }
 
-    pub fn max(with_keccak: bool) -> Self {
+    pub fn max() -> Self {
         Self {
             gas: usize::MAX,
             n_steps: usize::MAX,
             message_segment_length: usize::MAX,
             state_diff_size: usize::MAX,
             n_events: usize::MAX,
-            builtin_count: BuiltinCount::max(with_keccak),
+            builtin_count: BuiltinCount::max(),
         }
     }
 }
@@ -128,28 +117,59 @@ impl BouncerWeights {
     Serialize,
 )]
 pub struct BuiltinCount {
+    pub add_mod: usize,
     pub bitwise: usize,
     pub ecdsa: usize,
     pub ec_op: usize,
     pub keccak: usize,
+    pub mul_mod: usize,
     pub pedersen: usize,
     pub poseidon: usize,
     pub range_check: usize,
+    pub range_check96: usize,
+}
+
+macro_rules! impl_all_non_zero {
+    ($($field:ident),+) => {
+        pub fn all_non_zero(&self) -> bool {
+            $( self.$field != 0 )&&+
+        }
+    };
+}
+
+macro_rules! impl_builtin_variants {
+    ($($field:ident),+) => {
+        impl_checked_sub!($($field),+);
+        impl_all_non_zero!($($field),+);
+    };
 }
 
 impl BuiltinCount {
-    impl_checked_sub!(bitwise, ecdsa, ec_op, keccak, pedersen, poseidon, range_check);
+    impl_builtin_variants!(
+        add_mod,
+        bitwise,
+        ec_op,
+        ecdsa,
+        keccak,
+        mul_mod,
+        pedersen,
+        poseidon,
+        range_check,
+        range_check96
+    );
 
-    pub fn max(with_keccak: bool) -> Self {
-        let keccak = if with_keccak { usize::MAX } else { 0 };
+    pub fn max() -> Self {
         Self {
+            add_mod: usize::MAX,
             bitwise: usize::MAX,
             ecdsa: usize::MAX,
             ec_op: usize::MAX,
-            keccak,
+            keccak: usize::MAX,
+            mul_mod: usize::MAX,
             pedersen: usize::MAX,
             poseidon: usize::MAX,
             range_check: usize::MAX,
+            range_check96: usize::MAX,
         }
     }
 }
@@ -160,13 +180,16 @@ impl From<HashMapWrapper> for BuiltinCount {
         // ExecutionResources contains all the builtins.
         // The keccak config we get from python is not always present.
         let builtin_count = Self {
-            bitwise: data.remove(BuiltinName::bitwise.name()).unwrap_or_default(),
-            ecdsa: data.remove(BuiltinName::ecdsa.name()).unwrap_or_default(),
-            ec_op: data.remove(BuiltinName::ec_op.name()).unwrap_or_default(),
-            keccak: data.remove(BuiltinName::keccak.name()).unwrap_or_default(),
-            pedersen: data.remove(BuiltinName::pedersen.name()).unwrap_or_default(),
-            poseidon: data.remove(BuiltinName::poseidon.name()).unwrap_or_default(),
-            range_check: data.remove(BuiltinName::range_check.name()).unwrap_or_default(),
+            add_mod: data.remove(&BuiltinName::add_mod).unwrap_or_default(),
+            bitwise: data.remove(&BuiltinName::bitwise).unwrap_or_default(),
+            ecdsa: data.remove(&BuiltinName::ecdsa).unwrap_or_default(),
+            ec_op: data.remove(&BuiltinName::ec_op).unwrap_or_default(),
+            keccak: data.remove(&BuiltinName::keccak).unwrap_or_default(),
+            mul_mod: data.remove(&BuiltinName::mul_mod).unwrap_or_default(),
+            pedersen: data.remove(&BuiltinName::pedersen).unwrap_or_default(),
+            poseidon: data.remove(&BuiltinName::poseidon).unwrap_or_default(),
+            range_check: data.remove(&BuiltinName::range_check).unwrap_or_default(),
+            range_check96: data.remove(&BuiltinName::range_check96).unwrap_or_default(),
         };
         assert!(
             data.is_empty(),
@@ -319,7 +342,7 @@ pub fn get_particia_update_resources(n_visited_storage_entries: usize) -> Execut
         // TODO(Yoni, 1/5/2024): re-estimate this.
         n_steps: 32 * n_updates,
         // For each Patricia update there are two hash calculations.
-        builtin_instance_counter: HashMap::from([(HASH_BUILTIN_NAME.to_string(), 2 * n_updates)]),
+        builtin_instance_counter: HashMap::from([(BuiltinName::pedersen, 2 * n_updates)]),
         n_memory_holes: 0,
     }
 }

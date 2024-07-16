@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 use std::sync::Arc;
 
-use cairo_felt::Felt252;
 use cairo_lang_casm;
 use cairo_lang_casm::hints::Hint;
 use cairo_lang_starknet_classes::casm_contract_class::{CasmContractClass, CasmContractEntryPoint};
@@ -10,10 +9,10 @@ use cairo_lang_starknet_classes::NestedIntList;
 use cairo_vm::serde::deserialize_program::{
     ApTracking, FlowTrackingData, HintParams, ReferenceManager,
 };
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::program::Program;
 use cairo_vm::types::relocatable::MaybeRelocatable;
-use cairo_vm::vm::runners::builtin_runner::{HASH_BUILTIN_NAME, POSEIDON_BUILTIN_NAME};
 use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use itertools::Itertools;
 use num_traits::Num;
@@ -24,13 +23,14 @@ use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPoint, EntryPointOffset, EntryPointType,
     Program as DeprecatedProgram,
 };
+use starknet_types_core::felt::Felt;
 
 use super::execution_utils::{cairo_vm_to_sn_api_program, poseidon_hash_many_cost};
 use crate::abi::abi_utils::selector_from_name;
 use crate::abi::constants::{self, CONSTRUCTOR_ENTRY_POINT_NAME};
 use crate::execution::entry_point::CallEntryPoint;
 use crate::execution::errors::{ContractClassError, PreExecutionError};
-use crate::execution::execution_utils::{felt_to_stark_felt, sn_api_to_cairo_vm_program};
+use crate::execution::execution_utils::sn_api_to_cairo_vm_program;
 use crate::fee::eth_gas_constants;
 use crate::transaction::errors::TransactionExecutionError;
 
@@ -125,10 +125,7 @@ impl ContractClassV0 {
         ExecutionResources {
             n_steps,
             n_memory_holes: 0,
-            builtin_instance_counter: HashMap::from([(
-                HASH_BUILTIN_NAME.to_string(),
-                hashed_data_size,
-            )]),
+            builtin_instance_counter: HashMap::from([(BuiltinName::pedersen, hashed_data_size)]),
         }
     }
 
@@ -290,7 +287,7 @@ pub fn estimate_casm_hash_computation_resources(
             &ExecutionResources {
                 n_steps: 474,
                 n_memory_holes: 0,
-                builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 10)]),
+                builtin_instance_counter: HashMap::from([(BuiltinName::poseidon, 10)]),
             } + &poseidon_hash_many_cost(*length)
         }
         NestedIntList::Node(segments) => {
@@ -298,12 +295,12 @@ pub fn estimate_casm_hash_computation_resources(
             let mut execution_resources = ExecutionResources {
                 n_steps: 491,
                 n_memory_holes: 0,
-                builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 11)]),
+                builtin_instance_counter: HashMap::from([(BuiltinName::poseidon, 11)]),
             };
             let base_segment_cost = ExecutionResources {
                 n_steps: 24,
                 n_memory_holes: 1,
-                builtin_instance_counter: HashMap::from([(POSEIDON_BUILTIN_NAME.to_string(), 1)]),
+                builtin_instance_counter: HashMap::from([(BuiltinName::poseidon, 1)]),
             };
             for segment in segments {
                 let NestedIntList::Leaf(length) = segment else {
@@ -449,7 +446,7 @@ impl TryInto<CasmContractClass> for &ContractClassV1 {
             .unwrap_or(&vec![])
             .iter()
             .map(|constructor| CasmContractEntryPoint {
-                selector: num_bigint::BigUint::from_bytes_be(constructor.selector.0.bytes()),
+                selector: num_bigint::BigUint::from_bytes_be(&constructor.selector.0.to_bytes_be()),
                 offset: constructor.offset.0,
                 builtins: constructor.builtins.clone(),
             })
@@ -462,7 +459,7 @@ impl TryInto<CasmContractClass> for &ContractClassV1 {
             .unwrap_or(&vec![])
             .iter()
             .map(|external| CasmContractEntryPoint {
-                selector: num_bigint::BigUint::from_bytes_be(external.selector.0.bytes()),
+                selector: num_bigint::BigUint::from_bytes_be(&external.selector.0.to_bytes_be()),
                 offset: external.offset.0,
                 builtins: external.builtins.clone(),
             })
@@ -475,7 +472,7 @@ impl TryInto<CasmContractClass> for &ContractClassV1 {
             .unwrap_or(&vec![])
             .iter()
             .map(|l1_handler| CasmContractEntryPoint {
-                selector: num_bigint::BigUint::from_bytes_be(l1_handler.selector.0.bytes()),
+                selector: num_bigint::BigUint::from_bytes_be(&l1_handler.selector.0.to_bytes_be()),
                 offset: l1_handler.offset.0,
                 builtins: l1_handler.builtins.clone(),
             })
@@ -507,7 +504,7 @@ impl TryFrom<CasmContractClass> for ContractClassV1 {
         let data: Vec<MaybeRelocatable> = class
             .bytecode
             .into_iter()
-            .map(|x| MaybeRelocatable::from(Felt252::from(x.value)))
+            .map(|x| MaybeRelocatable::from(Felt::from(x.value)))
             .collect();
 
         let mut hints: HashMap<usize, Vec<HintParams>> = HashMap::new();
@@ -613,7 +610,7 @@ fn convert_entry_points_v1(
         .into_iter()
         .map(|ep| -> Result<_, ProgramError> {
             Ok(EntryPointV1 {
-                selector: EntryPointSelector(felt_to_stark_felt(&Felt252::from(ep.selector))),
+                selector: EntryPointSelector(Felt::from(ep.selector)),
                 offset: EntryPointOffset(ep.offset),
                 builtins: ep.builtins.into_iter().map(|builtin| builtin + "_builtin").collect(),
             })

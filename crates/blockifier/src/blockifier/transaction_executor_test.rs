@@ -1,9 +1,9 @@
 use assert_matches::assert_matches;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
-use starknet_api::hash::StarkFelt;
-use starknet_api::stark_felt;
+use starknet_api::felt;
 use starknet_api::transaction::{Fee, TransactionVersion};
+use starknet_types_core::felt::Felt;
 
 use crate::blockifier::config::TransactionExecutorConfig;
 use crate::blockifier::transaction_executor::{
@@ -146,8 +146,8 @@ fn test_deploy_account(
 #[case::invoke_function_base_case(
     "assert_eq",
     vec![
-        stark_felt!(3_u32), // x.
-        stark_felt!(3_u32)  // y.
+        felt!(3_u32), // x.
+        felt!(3_u32)  // y.
     ],
     BouncerWeights {
         state_diff_size: 2,
@@ -159,9 +159,9 @@ fn test_deploy_account(
 #[case::emit_event_syscall(
     "test_emit_events",
     vec![
-        stark_felt!(1_u32), // events_number.
-        stark_felt!(0_u32), // keys length.
-        stark_felt!(0_u32)  // data length.
+        felt!(1_u32), // events_number.
+        felt!(0_u32), // keys length.
+        felt!(0_u32)  // data length.
     ],
     BouncerWeights {
         state_diff_size: 2,
@@ -185,7 +185,7 @@ fn test_invoke(
     #[values(TransactionVersion::ONE, TransactionVersion::THREE)] version: TransactionVersion,
     #[values(CairoVersion::Cairo0, CairoVersion::Cairo1)] cairo_version: CairoVersion,
     #[case] entry_point_name: &str,
-    #[case] entry_point_args: Vec<StarkFelt>,
+    #[case] entry_point_args: Vec<Felt>,
     #[case] expected_bouncer_weights: BouncerWeights,
 ) {
     let test_contract = FeatureContract::TestContract(cairo_version);
@@ -241,7 +241,7 @@ fn test_l1_handler(block_context: BlockContext) {
 
 fn test_bouncing(#[case] initial_bouncer_weights: BouncerWeights, #[case] n_events: usize) {
     let max_n_events_in_block = 10;
-    let block_context = BlockContext::create_for_bouncer_testing(max_n_events_in_block, false);
+    let block_context = BlockContext::create_for_bouncer_testing(max_n_events_in_block);
 
     let TestInitData { state, account_address, contract_address, mut nonce_manager } =
         create_test_init_data(&block_context.chain_info, CairoVersion::Cairo1);
@@ -267,10 +267,7 @@ fn test_bouncing(#[case] initial_bouncer_weights: BouncerWeights, #[case] n_even
 fn test_execute_txs_bouncing() {
     let config = TransactionExecutorConfig::create_for_testing();
     let max_n_events_in_block = 10;
-    let block_context = BlockContext::create_for_bouncer_testing(
-        max_n_events_in_block,
-        config.concurrency_config.enabled,
-    );
+    let block_context = BlockContext::create_for_bouncer_testing(max_n_events_in_block);
 
     let TestInitData { state, account_address, contract_address, .. } =
         create_test_init_data(&block_context.chain_info, CairoVersion::Cairo1);

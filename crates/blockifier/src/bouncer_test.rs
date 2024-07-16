@@ -1,10 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use cairo_vm::serde::deserialize_program::BuiltinName;
+use cairo_vm::types::builtin_name::BuiltinName;
 use rstest::rstest;
 use starknet_api::core::{ClassHash, ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
-use starknet_api::{class_hash, contract_address, patricia_key};
+use starknet_api::{class_hash, contract_address, felt, patricia_key};
 
 use super::BouncerConfig;
 use crate::blockifier::transaction_executor::{
@@ -22,13 +21,16 @@ use crate::transaction::errors::TransactionExecutionError;
 fn test_block_weights_has_room() {
     let max_bouncer_weights = BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 10,
             bitwise: 10,
             ecdsa: 10,
             ec_op: 10,
             keccak: 10,
+            mul_mod: 10,
             pedersen: 10,
             poseidon: 10,
             range_check: 10,
+            range_check96: 10,
         },
         gas: 10,
         message_segment_length: 10,
@@ -39,13 +41,16 @@ fn test_block_weights_has_room() {
 
     let bouncer_weights = BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 6,
             bitwise: 6,
             ecdsa: 7,
             ec_op: 7,
             keccak: 8,
+            mul_mod: 6,
             pedersen: 7,
             poseidon: 9,
             range_check: 10,
+            range_check96: 10,
         },
         gas: 7,
         message_segment_length: 10,
@@ -58,13 +63,16 @@ fn test_block_weights_has_room() {
 
     let bouncer_weights_exceeds_max = BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 5,
             bitwise: 11,
             ecdsa: 5,
             ec_op: 5,
             keccak: 5,
+            mul_mod: 5,
             pedersen: 5,
             poseidon: 5,
             range_check: 5,
+            range_check96: 5,
         },
         gas: 5,
         message_segment_length: 5,
@@ -90,13 +98,16 @@ fn test_block_weights_has_room() {
     bouncer_config: BouncerConfig::empty(),
     accumulated_weights: BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 10,
             bitwise: 10,
             ecdsa: 10,
             ec_op: 10,
             keccak: 10,
+            mul_mod: 10,
             pedersen: 10,
             poseidon: 10,
             range_check: 10,
+            range_check96: 10,
         },
         gas: 10,
         message_segment_length: 10,
@@ -117,13 +128,16 @@ fn test_bouncer_update(#[case] initial_bouncer: Bouncer) {
 
     let weights_to_update = BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 0,
             bitwise: 1,
             ecdsa: 2,
             ec_op: 3,
             keccak: 4,
+            mul_mod: 0,
             pedersen: 6,
             poseidon: 7,
             range_check: 8,
+            range_check96: 0,
         },
         gas: 9,
         message_segment_length: 10,
@@ -156,39 +170,16 @@ fn test_bouncer_update(#[case] initial_bouncer: Bouncer) {
 }
 
 #[rstest]
-#[case::positive_flow(0, 1, 0, Ok(()))]
-#[case::block_full(0, 11, 0, Err(TransactionExecutorError::BlockFull))]
+#[case::positive_flow(1, Ok(()))]
+#[case::block_full(11, Err(TransactionExecutorError::BlockFull))]
 #[case::transaction_too_large(
-    0,
     21,
-    0,
-    Err(TransactionExecutorError::TransactionExecutionError(
-        TransactionExecutionError::TransactionTooLarge
-    ))
-)]
-#[case::positive_flow_with_keccak(0, 0, 1, Ok(()))]
-#[case::block_full_with_keccak(1, 0, 1, Err(TransactionExecutorError::BlockFull))]
-#[case::transaction_too_large_with_keccak(
-    0,
-    0,
-    2,
-    Err(TransactionExecutorError::TransactionExecutionError(
-        TransactionExecutionError::TransactionTooLarge
-    ))
-)]
-#[case::block_full_with_keccak_ecdsa_exceeds(0, 11, 1, Err(TransactionExecutorError::BlockFull))]
-#[case::transaction_too_large_with_keccak_ecdsa_too_large(
-    0,
-    21,
-    1,
     Err(TransactionExecutorError::TransactionExecutionError(
         TransactionExecutionError::TransactionTooLarge
     ))
 )]
 fn test_bouncer_try_update(
-    #[case] initial_keccak: usize,
     #[case] added_ecdsa: usize,
-    #[case] added_keccak: usize,
     #[case] expected_result: TransactionExecutorResult<()>,
 ) {
     use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
@@ -201,13 +192,16 @@ fn test_bouncer_try_update(
     // Setup the bouncer.
     let block_max_capacity = BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 20,
             bitwise: 20,
             ecdsa: 20,
             ec_op: 20,
-            keccak: 0,
+            keccak: 20,
+            mul_mod: 20,
             pedersen: 20,
             poseidon: 20,
             range_check: 20,
+            range_check96: 20,
         },
         gas: 20,
         message_segment_length: 20,
@@ -215,19 +209,20 @@ fn test_bouncer_try_update(
         n_events: 20,
         state_diff_size: 20,
     };
-    let mut block_max_capacity_with_keccak = block_max_capacity;
-    block_max_capacity_with_keccak.builtin_count.keccak = 1;
-    let bouncer_config = BouncerConfig { block_max_capacity, block_max_capacity_with_keccak };
+    let bouncer_config = BouncerConfig { block_max_capacity };
 
     let accumulated_weights = BouncerWeights {
         builtin_count: BuiltinCount {
+            add_mod: 10,
             bitwise: 10,
             ecdsa: 10,
             ec_op: 10,
-            keccak: initial_keccak,
+            keccak: 10,
+            mul_mod: 10,
             pedersen: 10,
             poseidon: 10,
             range_check: 10,
+            range_check96: 10,
         },
         gas: 10,
         message_segment_length: 10,
@@ -241,13 +236,13 @@ fn test_bouncer_try_update(
     // Prepare the resources to be added to the bouncer.
     let execution_summary = ExecutionSummary { ..Default::default() };
     let builtin_counter = HashMap::from([
-        (BuiltinName::bitwise.name().to_string(), 1),
-        (BuiltinName::ecdsa.name().to_string(), added_ecdsa),
-        (BuiltinName::ec_op.name().to_string(), 1),
-        (BuiltinName::keccak.name().to_string(), added_keccak),
-        (BuiltinName::pedersen.name().to_string(), 1),
-        (BuiltinName::poseidon.name().to_string(), 1),
-        (BuiltinName::range_check.name().to_string(), 1),
+        (BuiltinName::bitwise, 1),
+        (BuiltinName::ecdsa, added_ecdsa),
+        (BuiltinName::ec_op, 1),
+        (BuiltinName::keccak, 1),
+        (BuiltinName::pedersen, 1),
+        (BuiltinName::poseidon, 1),
+        (BuiltinName::range_check, 1),
     ]);
     let tx_resources = TransactionResources {
         vm_resources: ExecutionResources {

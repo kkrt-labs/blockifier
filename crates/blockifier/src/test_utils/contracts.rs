@@ -4,8 +4,8 @@ use starknet_api::core::{
 use starknet_api::deprecated_contract_class::{
     ContractClass as DeprecatedContractClass, EntryPointOffset, EntryPointType,
 };
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::{class_hash, contract_address, patricia_key, stark_felt};
+use starknet_api::{class_hash, contract_address, felt, patricia_key};
+use starknet_types_core::felt::Felt;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -63,7 +63,7 @@ const ERC20_CAIRO1_CONTRACT_PATH: &str = "./ERC20/ERC20_Cairo1/erc20.casm.json";
 
 /// Enum representing all feature contracts.
 /// The contracts that are implemented in both Cairo versions include a version field.
-#[derive(Clone, Copy, Debug, EnumIter)]
+#[derive(Clone, Copy, Debug, EnumIter, Hash, PartialEq, Eq)]
 pub enum FeatureContract {
     AccountWithLongValidate(CairoVersion),
     AccountWithoutValidations(CairoVersion),
@@ -76,7 +76,7 @@ pub enum FeatureContract {
 }
 
 impl FeatureContract {
-    fn cairo_version(&self) -> CairoVersion {
+    pub fn cairo_version(&self) -> CairoVersion {
         match self {
             Self::AccountWithLongValidate(version)
             | Self::AccountWithoutValidations(version)
@@ -99,6 +99,63 @@ impl FeatureContract {
             | Self::ERC20(_) => true,
             Self::SecurityTests | Self::LegacyTestContract => false,
         }
+    }
+
+    pub fn set_cairo_version(&mut self, version: CairoVersion) {
+        match self {
+            Self::AccountWithLongValidate(v)
+            | Self::AccountWithoutValidations(v)
+            | Self::Empty(v)
+            | Self::FaultyAccount(v)
+            | Self::TestContract(v)
+            | Self::ERC20(v) => *v = version,
+            Self::LegacyTestContract | Self::SecurityTests => {
+                panic!("{self:?} contract has no configurable version.")
+            }
+        }
+    }
+
+    pub fn get_class_hash(&self) -> ClassHash {
+        class_hash!(self.get_integer_base())
+    }
+
+    pub fn get_compiled_class_hash(&self) -> CompiledClassHash {
+        match self.cairo_version() {
+            CairoVersion::Cairo0 => CompiledClassHash(Felt::ZERO),
+            CairoVersion::Cairo1 => CompiledClassHash(felt!(self.get_integer_base())),
+        }
+    }
+
+    /// Returns the address of the instance with the given instance ID.
+    pub fn get_instance_address(&self, instance_id: u16) -> ContractAddress {
+        let instance_id_as_u32: u32 = instance_id.into();
+        contract_address!(self.get_integer_base() + instance_id_as_u32 + ADDRESS_BIT)
+    }
+
+    pub fn get_class(&self) -> ContractClass {
+        match self.cairo_version() {
+            CairoVersion::Cairo0 => ContractClassV0::from_file(&self.get_compiled_path()).into(),
+            CairoVersion::Cairo1 => ContractClassV1::from_file(&self.get_compiled_path()).into(),
+        }
+    }
+
+    // TODO(Arni, 1/1/2025): Remove this function, and use the get_class function instead.
+    pub fn get_deprecated_contract_class(&self) -> DeprecatedContractClass {
+        let mut raw_contract_class: serde_json::Value =
+            serde_json::from_str(&self.get_raw_class()).unwrap();
+
+        // ABI is not required for execution.
+        raw_contract_class
+            .as_object_mut()
+            .expect("A compiled contract must be a JSON object.")
+            .remove("abi");
+
+        serde_json::from_value(raw_contract_class)
+            .expect("DeprecatedContractClass is not supported for this contract.")
+    }
+
+    pub fn get_raw_class(&self) -> String {
+        get_raw_contract_class(&self.get_compiled_path())
     }
 
     fn get_cairo_version_bit(&self) -> u32 {
@@ -153,63 +210,6 @@ impl FeatureContract {
                 CairoVersion::Cairo1 => ".casm",
             }
         )
-    }
-
-    pub fn set_cairo_version(&mut self, version: CairoVersion) {
-        match self {
-            Self::AccountWithLongValidate(v)
-            | Self::AccountWithoutValidations(v)
-            | Self::Empty(v)
-            | Self::FaultyAccount(v)
-            | Self::TestContract(v)
-            | Self::ERC20(v) => *v = version,
-            Self::LegacyTestContract | Self::SecurityTests => {
-                panic!("{self:?} contract has no configurable version.")
-            }
-        }
-    }
-
-    pub fn get_class_hash(&self) -> ClassHash {
-        class_hash!(self.get_integer_base())
-    }
-
-    pub fn get_compiled_class_hash(&self) -> CompiledClassHash {
-        match self.cairo_version() {
-            CairoVersion::Cairo0 => CompiledClassHash(StarkFelt::ZERO),
-            CairoVersion::Cairo1 => CompiledClassHash(stark_felt!(self.get_integer_base())),
-        }
-    }
-
-    /// Returns the address of the instance with the given instance ID.
-    pub fn get_instance_address(&self, instance_id: u16) -> ContractAddress {
-        let instance_id_as_u32: u32 = instance_id.into();
-        contract_address!(self.get_integer_base() + instance_id_as_u32 + ADDRESS_BIT)
-    }
-
-    pub fn get_class(&self) -> ContractClass {
-        match self.cairo_version() {
-            CairoVersion::Cairo0 => ContractClassV0::from_file(&self.get_compiled_path()).into(),
-            CairoVersion::Cairo1 => ContractClassV1::from_file(&self.get_compiled_path()).into(),
-        }
-    }
-
-    // TODO(Arni, 1/1/2025): Remove this function, and use the get_class function instead.
-    pub fn get_deprecated_contract_class(&self) -> DeprecatedContractClass {
-        let mut raw_contract_class: serde_json::Value =
-            serde_json::from_str(&self.get_raw_class()).unwrap();
-
-        // ABI is not required for execution.
-        raw_contract_class
-            .as_object_mut()
-            .expect("A compiled contract must be a JSON object.")
-            .remove("abi");
-
-        serde_json::from_value(raw_contract_class)
-            .expect("DeprecatedContractClass is not supported for this contract.")
-    }
-
-    pub fn get_raw_class(&self) -> String {
-        get_raw_contract_class(&self.get_compiled_path())
     }
 
     /// Fetch PC locations from the compiled contract to compute the expected PC locations in the

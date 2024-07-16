@@ -17,8 +17,8 @@ use pyo3::{FromPyObject, PyAny, Python};
 use serde::Serialize;
 use starknet_api::block::BlockNumber;
 use starknet_api::core::{ChainId, ContractAddress};
-use starknet_api::hash::StarkFelt;
 use starknet_api::transaction::Fee;
+use starknet_types_core::felt::Felt;
 
 use crate::errors::{NativeBlockifierError, NativeBlockifierResult};
 use crate::py_objects::{PyBouncerConfig, PyConcurrencyConfig, PyVersionedConstantsOverrides};
@@ -108,7 +108,7 @@ impl PyBlockExecutor {
         log::debug!("Initialized Block Executor.");
 
         Self {
-            bouncer_config: bouncer_config.into(),
+            bouncer_config: bouncer_config.try_into().expect("Failed to parse bouncer config."),
             tx_executor_config: TransactionExecutorConfig {
                 concurrency_config: concurrency_config.into(),
             },
@@ -135,7 +135,6 @@ impl PyBlockExecutor {
             self.chain_info.clone(),
             self.versioned_constants.clone(),
             self.bouncer_config.clone(),
-            self.tx_executor_config.concurrency_config.enabled,
         );
         let next_block_number = block_context.block_info().block_number;
 
@@ -306,7 +305,7 @@ impl PyBlockExecutor {
         let mut block_id_fixed_bytes = [0_u8; 32];
         block_id_fixed_bytes.copy_from_slice(&block_id_bytes);
 
-        Ok(Some(PyFelt(StarkFelt::new(block_id_fixed_bytes)?)))
+        Ok(Some(PyFelt(Felt::from_bytes_be(&block_id_fixed_bytes))))
     }
 
     #[pyo3(signature = (source_block_number))]
@@ -344,15 +343,15 @@ impl PyBlockExecutor {
     ) -> Self {
         use blockifier::bouncer::BouncerWeights;
         use blockifier::state::global_cache::GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST;
+        // TODO(Meshi, 01/01/2025): Remove this once we fix all python tests that re-declare cairo0
+        // contracts.
+        let mut versioned_constants = VersionedConstants::latest_constants().clone();
+        versioned_constants.disable_cairo0_redeclaration = false;
         Self {
             bouncer_config: BouncerConfig {
                 block_max_capacity: BouncerWeights {
                     state_diff_size: max_state_diff_size,
-                    ..BouncerWeights::max(false)
-                },
-                block_max_capacity_with_keccak: BouncerWeights {
-                    state_diff_size: max_state_diff_size,
-                    ..BouncerWeights::max(true)
+                    ..BouncerWeights::max()
                 },
             },
             tx_executor_config: TransactionExecutorConfig {
@@ -363,7 +362,7 @@ impl PyBlockExecutor {
                 &general_config.starknet_os_config.chain_id,
             )),
             chain_info: general_config.starknet_os_config.into_chain_info(),
-            versioned_constants: VersionedConstants::latest_constants().clone(),
+            versioned_constants,
             tx_executor: None,
             global_contract_cache: GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
         }
@@ -397,6 +396,16 @@ impl PyBlockExecutor {
             tx_executor: None,
             global_contract_cache: GlobalContractCache::new(GLOBAL_CONTRACT_CACHE_SIZE_FOR_TEST),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn native_create_for_testing(
+        concurrency_config: PyConcurrencyConfig,
+        general_config: PyGeneralConfig,
+        path: std::path::PathBuf,
+        max_state_diff_size: usize,
+    ) -> Self {
+        Self::create_for_testing(concurrency_config, general_config, path, max_state_diff_size)
     }
 }
 
@@ -442,7 +451,7 @@ impl TryFrom<PyOsConfig> for ChainInfo {
 impl Default for PyOsConfig {
     fn default() -> Self {
         Self {
-            chain_id: ChainId("".to_string()),
+            chain_id: ChainId::Other("".to_string()),
             deprecated_fee_token_address: Default::default(),
             fee_token_address: Default::default(),
         }

@@ -3,9 +3,11 @@ use std::sync::Mutex;
 
 use rstest::rstest;
 use starknet_api::core::{ContractAddress, Nonce, PatriciaKey};
-use starknet_api::hash::{StarkFelt, StarkHash};
-use starknet_api::transaction::{ContractAddressSalt, Fee, TransactionVersion};
-use starknet_api::{contract_address, patricia_key, stark_felt};
+use starknet_api::transaction::{
+    ContractAddressSalt, Fee, ResourceBoundsMapping, TransactionVersion,
+};
+use starknet_api::{contract_address, felt, patricia_key};
+use starknet_types_core::felt::Felt;
 
 use super::WorkerExecutor;
 use crate::abi::abi_utils::get_fee_token_var_address;
@@ -24,14 +26,15 @@ use crate::test_utils::contracts::FeatureContract;
 use crate::test_utils::declare::declare_tx;
 use crate::test_utils::initial_test_state::test_state;
 use crate::test_utils::{
-    create_calldata, create_trivial_calldata, CairoVersion, NonceManager, BALANCE, MAX_FEE,
-    MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE, TEST_ERC20_CONTRACT_ADDRESS,
+    create_calldata, create_trivial_calldata, CairoVersion, NonceManager, BALANCE,
+    TEST_ERC20_CONTRACT_ADDRESS2,
 };
 use crate::transaction::account_transaction::AccountTransaction;
 use crate::transaction::constants::DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME;
 use crate::transaction::objects::HasRelatedFeeType;
 use crate::transaction::test_utils::{
-    account_invoke_tx, calculate_class_info_for_testing, l1_resource_bounds,
+    account_invoke_tx, calculate_class_info_for_testing, emit_n_events_tx, max_fee,
+    max_resource_bounds,
 };
 use crate::transaction::transaction_execution::Transaction;
 use crate::{declare_tx_args, invoke_tx_args, nonce, storage_key};
@@ -44,8 +47,7 @@ fn trivial_calldata_invoke_tx(
     account_invoke_tx(invoke_tx_args! {
         sender_address: account_address,
         calldata: create_trivial_calldata(test_contract_address),
-        resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
-        version: TransactionVersion::THREE,
+        resource_bounds: max_resource_bounds(),
         nonce,
     })
 }
@@ -63,8 +65,8 @@ fn verify_sequencer_balance_update<S: StateReader>(
     let (sequencer_balance_key_low, sequencer_balance_key_high) =
         get_sequencer_balance_keys(block_context);
     for (expected_balance, storage_key) in [
-        (stark_felt!(expected_sequencer_balance_low), sequencer_balance_key_low),
-        (StarkFelt::ZERO, sequencer_balance_key_high),
+        (felt!(expected_sequencer_balance_low), sequencer_balance_key_low),
+        (Felt::ZERO, sequencer_balance_key_high),
     ] {
         let actual_balance = tx_version_state
             .get_storage_at(
@@ -78,7 +80,7 @@ fn verify_sequencer_balance_update<S: StateReader>(
 
 #[rstest]
 pub fn test_commit_tx() {
-    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let block_context = BlockContext::create_for_account_testing();
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let mut expected_sequencer_balance_low = 0_u128;
@@ -164,10 +166,7 @@ pub fn test_commit_tx() {
                     .as_ref()
                     .unwrap()
                     .storage_read_values[read_storage_index];
-                assert_eq!(
-                    stark_felt!(expected_sequencer_storage_read),
-                    actual_sequencer_storage_read,
-                );
+                assert_eq!(felt!(expected_sequencer_storage_read), actual_sequencer_storage_read,);
             }
         }
         let tx_context = executor.block_context.to_tx_context(&txs[commit_idx]);
@@ -187,7 +186,7 @@ pub fn test_commit_tx() {
 // Thus, we skip the last step of commit tx, meaning the execution result before and after
 // commit tx should be the same (except for re-execution changes).
 fn test_commit_tx_when_sender_is_sequencer() {
-    let mut block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let mut block_context = BlockContext::create_for_account_testing();
     let account = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let account_address = account.get_instance_address(0_u16);
@@ -251,12 +250,10 @@ fn test_commit_tx_when_sender_is_sequencer() {
     assert_eq!(sequencer_balance_high_before, sequencer_balance_high_after);
 }
 
-#[test]
-fn test_worker_execute() {
+#[rstest]
+fn test_worker_execute(max_resource_bounds: ResourceBoundsMapping) {
     // Settings.
-    let concurrency_mode = true;
-    let block_context =
-        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
+    let block_context = BlockContext::create_for_account_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
@@ -269,7 +266,7 @@ fn test_worker_execute() {
     let test_contract_address = test_contract.get_instance_address(0);
     let account_address = account_contract.get_instance_address(0);
     let nonce_manager = &mut NonceManager::default();
-    let storage_value = stark_felt!(93_u8);
+    let storage_value = felt!(93_u8);
     let storage_key = storage_key!(1993_u16);
 
     let tx_success = account_invoke_tx(invoke_tx_args! {
@@ -279,7 +276,7 @@ fn test_worker_execute() {
             "test_storage_read_write",
             &[*storage_key.0.key(),storage_value ], // Calldata:  address, value.
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds.clone(),
         nonce: nonce_manager.next(account_address)
     });
 
@@ -292,7 +289,7 @@ fn test_worker_execute() {
             "test_storage_read_write",
             &[*storage_key.0.key(),storage_value ], // Calldata:  address, value.
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds.clone(),
         nonce: nonce_manager.next(account_address)
 
     });
@@ -302,9 +299,9 @@ fn test_worker_execute() {
         calldata: create_calldata(
             test_contract_address,
             "write_and_revert",
-            &[stark_felt!(1991_u16),storage_value ], // Calldata:  address, value.
+            &[felt!(1991_u16),storage_value ], // Calldata:  address, value.
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds,
         nonce: nonce_manager.next(account_address)
 
     });
@@ -346,7 +343,7 @@ fn test_worker_execute() {
     assert!(!result.is_reverted());
 
     let erc20 = FeatureContract::ERC20(CairoVersion::Cairo0);
-    let erc_contract_address = contract_address!(TEST_ERC20_CONTRACT_ADDRESS);
+    let erc_contract_address = contract_address!(TEST_ERC20_CONTRACT_ADDRESS2);
     let account_balance_key_low = get_fee_token_var_address(account_address);
     let account_balance_key_high = next_storage_key(&account_balance_key_low).unwrap();
     // Both in write and read sets, only the account balance appear, and not the sequencer balance.
@@ -357,8 +354,8 @@ fn test_worker_execute() {
         nonces: HashMap::from([(account_address, nonce!(1_u8))]),
         storage: HashMap::from([
             ((test_contract_address, storage_key), storage_value),
-            ((erc_contract_address, account_balance_key_low), stark_felt!(account_balance)),
-            ((erc_contract_address, account_balance_key_high), stark_felt!(0_u8)),
+            ((erc_contract_address, account_balance_key_low), felt!(account_balance)),
+            ((erc_contract_address, account_balance_key_high), felt!(0_u8)),
         ]),
         ..Default::default()
     };
@@ -371,9 +368,9 @@ fn test_worker_execute() {
             (erc_contract_address, erc20.get_class_hash()),
         ]),
         storage: HashMap::from([
-            ((test_contract_address, storage_key), stark_felt!(0_u8)),
-            ((erc_contract_address, account_balance_key_low), stark_felt!(BALANCE)),
-            ((erc_contract_address, account_balance_key_high), stark_felt!(0_u8)),
+            ((test_contract_address, storage_key), felt!(0_u8)),
+            ((erc_contract_address, account_balance_key_low), felt!(BALANCE)),
+            ((erc_contract_address, account_balance_key_high), felt!(0_u8)),
         ]),
         // When running an entry point, we load its contract class.
         declared_contracts: HashMap::from([
@@ -427,13 +424,10 @@ fn test_worker_execute() {
     }
 }
 
-#[test]
-fn test_worker_validate() {
+#[rstest]
+fn test_worker_validate(max_resource_bounds: ResourceBoundsMapping) {
     // Settings.
-    let concurrency_mode = true;
-    let block_context =
-        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
-
+    let block_context = BlockContext::create_for_account_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
@@ -446,8 +440,8 @@ fn test_worker_validate() {
     let test_contract_address = test_contract.get_instance_address(0);
     let account_address = account_contract.get_instance_address(0);
     let nonce_manager = &mut NonceManager::default();
-    let storage_value0 = stark_felt!(93_u8);
-    let storage_value1 = stark_felt!(39_u8);
+    let storage_value0 = felt!(93_u8);
+    let storage_value1 = felt!(39_u8);
     let storage_key = storage_key!(1993_u16);
 
     // Both transactions change the same storage key.
@@ -458,7 +452,7 @@ fn test_worker_validate() {
             "test_storage_read_write",
             &[*storage_key.0.key(),storage_value0 ], // Calldata:  address, value.
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds.clone(),
         nonce: nonce_manager.next(account_address)
     });
 
@@ -469,7 +463,7 @@ fn test_worker_validate() {
             "test_storage_read_write",
             &[*storage_key.0.key(),storage_value1 ], // Calldata:  address, value.
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds,
         nonce: nonce_manager.next(account_address)
 
     });
@@ -533,10 +527,17 @@ fn test_worker_validate() {
     assert_eq!(next_task2, Task::AskForTask);
 }
 
-#[test]
-fn test_deploy_before_declare() {
+#[rstest]
+#[case::declare_cairo0(CairoVersion::Cairo0, TransactionVersion::ONE)]
+#[case::declare_cairo1(CairoVersion::Cairo1, TransactionVersion::THREE)]
+fn test_deploy_before_declare(
+    max_fee: Fee,
+    max_resource_bounds: ResourceBoundsMapping,
+    #[case] cairo_version: CairoVersion,
+    #[case] version: TransactionVersion,
+) {
     // Create the state.
-    let block_context = BlockContext::create_for_account_testing_with_concurrency_mode(true);
+    let block_context = BlockContext::create_for_account_testing();
     let chain_info = &block_context.chain_info;
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let state = test_state(chain_info, BALANCE, &[(account_contract, 2)]);
@@ -545,19 +546,18 @@ fn test_deploy_before_declare() {
     // Create transactions.
     let account_address_0 = account_contract.get_instance_address(0);
     let account_address_1 = account_contract.get_instance_address(1);
-    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo1);
+    let test_contract = FeatureContract::TestContract(cairo_version);
     let test_class_hash = test_contract.get_class_hash();
     let test_class_info = calculate_class_info_for_testing(test_contract.get_class());
     let test_compiled_class_hash = test_contract.get_compiled_class_hash();
-
     let declare_tx = declare_tx(
         declare_tx_args! {
-            max_fee: Fee(MAX_FEE),
             sender_address: account_address_0,
-            version: TransactionVersion::THREE,
-            resource_bounds: l1_resource_bounds(MAX_L1_GAS_AMOUNT, MAX_L1_GAS_PRICE),
+            resource_bounds: max_resource_bounds.clone(),
             class_hash: test_class_hash,
             compiled_class_hash: test_compiled_class_hash,
+            version,
+            max_fee,
             nonce: nonce!(0_u8),
         },
         test_class_info.clone(),
@@ -567,17 +567,17 @@ fn test_deploy_before_declare() {
     let invoke_tx = account_invoke_tx(invoke_tx_args! {
         sender_address: account_address_1,
         calldata: create_calldata(
-            account_contract.get_instance_address(0),
+            account_address_0,
             DEPLOY_CONTRACT_FUNCTION_ENTRY_POINT_NAME,
             &[
                 test_class_hash.0,                  // Class hash.
                 ContractAddressSalt::default().0,   // Salt.
-                stark_felt!(2_u8),                  // Constructor calldata length.
-                stark_felt!(1_u8),                  // Constructor calldata arg1.
-                stark_felt!(1_u8),                  // Constructor calldata arg2.
+                felt!(2_u8),                  // Constructor calldata length.
+                felt!(1_u8),                  // Constructor calldata arg1.
+                felt!(1_u8),                  // Constructor calldata arg2.
             ]
         ),
-        max_fee: Fee(MAX_FEE),
+        resource_bounds: max_resource_bounds,
         nonce: nonce!(0_u8)
     });
 
@@ -623,13 +623,10 @@ fn test_deploy_before_declare() {
     assert_eq!(next_task, Task::AskForTask);
 }
 
-#[test]
-fn test_worker_commit_phase() {
+#[rstest]
+fn test_worker_commit_phase(max_resource_bounds: ResourceBoundsMapping) {
     // Settings.
-    let concurrency_mode = true;
-    let block_context =
-        BlockContext::create_for_account_testing_with_concurrency_mode(concurrency_mode);
-
+    let block_context = BlockContext::create_for_account_testing();
     let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
     let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
     let chain_info = &block_context.chain_info;
@@ -642,21 +639,20 @@ fn test_worker_commit_phase() {
     let test_contract_address = test_contract.get_instance_address(0);
     let sender_address = account_contract.get_instance_address(0);
     let nonce_manager = &mut NonceManager::default();
-    let storage_value = stark_felt!(93_u8);
+    let storage_value = felt!(93_u8);
     let storage_key = storage_key!(1993_u16);
     let calldata = create_calldata(
         test_contract_address,
         "test_storage_read_write",
         &[*storage_key.0.key(), storage_value], // Calldata:  address, value.
     );
-    let max_fee = Fee(MAX_FEE);
 
     let txs = (0..3)
         .map(|_| {
             Transaction::AccountTransaction(account_invoke_tx(invoke_tx_args! {
                 sender_address,
                 calldata: calldata.clone(),
-                max_fee,
+                resource_bounds: max_resource_bounds.clone(),
                 nonce: nonce_manager.next(sender_address)
             }))
         })
@@ -700,8 +696,8 @@ fn test_worker_commit_phase() {
     // Commit the third (and last) transaction.
     worker_executor.commit_while_possible();
 
-    // Verify the commit index is now 3, the status of the last transaction is `Committed`, and the
-    // next task is `Done`.
+    // Verify the number of committed transactions is 3, the status of the last transaction is
+    // `Committed`, and the next task is `Done`.
     assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 3);
     assert_eq!(*worker_executor.scheduler.get_tx_status(2), TransactionStatus::Committed);
     assert_eq!(worker_executor.scheduler.next_task(), Task::Done);
@@ -710,10 +706,80 @@ fn test_worker_commit_phase() {
     worker_executor.commit_while_possible();
     assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 3);
 
+    // Make sure all transactions were executed successfully.
     for execution_output in worker_executor.execution_outputs.iter() {
         let locked_execution_output = execution_output.lock().unwrap();
         let result = locked_execution_output.as_ref().unwrap().result.as_ref();
         assert!(!result.unwrap().is_reverted());
     }
-    // TODO(Avi, 15/06/2024): Check the halt mechanism once the bouncer is supported.
+}
+
+#[rstest]
+fn test_worker_commit_phase_with_halt() {
+    // Settings.
+    let max_n_events_in_block = 3;
+    let block_context = BlockContext::create_for_bouncer_testing(max_n_events_in_block);
+
+    let account_contract = FeatureContract::AccountWithoutValidations(CairoVersion::Cairo1);
+    let test_contract = FeatureContract::TestContract(CairoVersion::Cairo0);
+    let chain_info = &block_context.chain_info;
+
+    // Create the state.
+    let state = test_state(chain_info, BALANCE, &[(account_contract, 1), (test_contract, 1)]);
+    let safe_versioned_state = safe_versioned_state_for_testing(state);
+
+    // Create transactions.
+    let test_contract_address = test_contract.get_instance_address(0);
+    let sender_address = account_contract.get_instance_address(0);
+    let nonce_manager = &mut NonceManager::default();
+    // Create two transactions with 2 events to trigger block full (if we use a single transaction
+    // and simply set the maximal number of events per block to 1, the transaction will fail with a
+    // different error, it will be too large to fit a block - even by itself).
+    let n_events = max_n_events_in_block - 1;
+
+    let txs = (0..2)
+        .map(|_| {
+            Transaction::AccountTransaction(emit_n_events_tx(
+                n_events,
+                sender_address,
+                test_contract_address,
+                nonce_manager.next(sender_address),
+            ))
+        })
+        .collect::<Vec<Transaction>>();
+
+    let mut bouncer = Bouncer::new(block_context.bouncer_config.clone());
+    let worker_executor =
+        WorkerExecutor::new(safe_versioned_state, &txs, &block_context, Mutex::new(&mut bouncer));
+
+    // Creates 2 active tasks.
+    // Creating these tasks changes the status of both transactions to `Executing`. If we skip this
+    // step, executing them will panic when reaching `finish_execution` (as their status will be
+    // `ReadyToExecute` and not `Executing` as expected).
+    assert_eq!(worker_executor.scheduler.next_task(), Task::ExecutionTask(0));
+    assert_eq!(worker_executor.scheduler.next_task(), Task::ExecutionTask(1));
+
+    // Execute both transactions.
+    worker_executor.execute(0);
+    worker_executor.execute(1);
+
+    // Commit both transactions.
+    worker_executor.commit_while_possible();
+
+    // Verify the scheduler is halted.
+    assert_eq!(worker_executor.scheduler.next_task(), Task::Done);
+
+    // Verify the status of both transactions is `Committed`.
+    assert_eq!(*worker_executor.scheduler.get_tx_status(0), TransactionStatus::Committed);
+    assert_eq!(*worker_executor.scheduler.get_tx_status(1), TransactionStatus::Committed);
+
+    // Verify that only one transaction was in fact committed.
+    assert_eq!(worker_executor.scheduler.get_n_committed_txs(), 1);
+
+    // Make sure all transactions were executed successfully.
+    for execution_output in worker_executor.execution_outputs.iter() {
+        let locked_execution_output = execution_output.lock().unwrap();
+        let result = locked_execution_output.as_ref().unwrap().result.as_ref();
+        assert!(!result.unwrap().is_reverted());
+    }
 }

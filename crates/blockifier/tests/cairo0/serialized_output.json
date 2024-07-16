@@ -405,43 +405,20 @@
     ],
     "debug_info": null,
     "hints": {
-      "106": [
+      "4": [
         {
           "accessible_scopes": [
-            "starkware.cairo.common.uint256",
-            "starkware.cairo.common.uint256.uint256_add"
+            "starkware.starknet.common.syscalls",
+            "starkware.starknet.common.syscalls.storage_read"
           ],
-          "code": "sum_low = ids.a.low + ids.b.low\nids.carry_low = 1 if sum_low >= ids.SHIFT else 0\nsum_high = ids.a.high + ids.b.high + ids.carry_low\nids.carry_high = 1 if sum_high >= ids.SHIFT else 0",
+          "code": "syscall_handler.storage_read(segments=segments, syscall_ptr=ids.syscall_ptr)",
           "flow_tracking_data": {
             "ap_tracking": {
-              "group": 6,
-              "offset": 4
+              "group": 0,
+              "offset": 1
             },
             "reference_ids": {
-              "starkware.cairo.common.uint256.uint256_add.a": 6,
-              "starkware.cairo.common.uint256.uint256_add.b": 7,
-              "starkware.cairo.common.uint256.uint256_add.carry_high": 9,
-              "starkware.cairo.common.uint256.uint256_add.carry_low": 8
-            }
-          }
-        }
-      ],
-      "128": [
-        {
-          "accessible_scopes": [
-            "starkware.cairo.common.uint256",
-            "starkware.cairo.common.uint256.split_64"
-          ],
-          "code": "ids.low = ids.a & ((1<<64) - 1)\nids.high = ids.a >> 64",
-          "flow_tracking_data": {
-            "ap_tracking": {
-              "group": 7,
-              "offset": 2
-            },
-            "reference_ids": {
-              "starkware.cairo.common.uint256.split_64.a": 10,
-              "starkware.cairo.common.uint256.split_64.high": 12,
-              "starkware.cairo.common.uint256.split_64.low": 11
+              "starkware.starknet.common.syscalls.storage_read.syscall_ptr": 0
             }
           }
         }
@@ -484,29 +461,6 @@
           }
         }
       ],
-      "256": [
-        {
-          "accessible_scopes": [
-            "starkware.cairo.common.uint256",
-            "starkware.cairo.common.uint256.uint256_mul_div_mod"
-          ],
-          "code": "a = (ids.a.high << 128) + ids.a.low\nb = (ids.b.high << 128) + ids.b.low\ndiv = (ids.div.high << 128) + ids.div.low\nquotient, remainder = divmod(a * b, div)\n\nids.quotient_low.low = quotient & ((1 << 128) - 1)\nids.quotient_low.high = (quotient >> 128) & ((1 << 128) - 1)\nids.quotient_high.low = (quotient >> 256) & ((1 << 128) - 1)\nids.quotient_high.high = quotient >> 384\nids.remainder.low = remainder & ((1 << 128) - 1)\nids.remainder.high = remainder >> 128",
-          "flow_tracking_data": {
-            "ap_tracking": {
-              "group": 10,
-              "offset": 182
-            },
-            "reference_ids": {
-              "starkware.cairo.common.uint256.uint256_mul_div_mod.a": 13,
-              "starkware.cairo.common.uint256.uint256_mul_div_mod.b": 14,
-              "starkware.cairo.common.uint256.uint256_mul_div_mod.div": 15,
-              "starkware.cairo.common.uint256.uint256_mul_div_mod.quotient_high": 17,
-              "starkware.cairo.common.uint256.uint256_mul_div_mod.quotient_low": 16,
-              "starkware.cairo.common.uint256.uint256_mul_div_mod.remainder": 18
-            }
-          }
-        }
-      ],
       "26": [
         {
           "accessible_scopes": [
@@ -520,42 +474,6 @@
               "offset": 8
             },
             "reference_ids": {}
-          }
-        }
-      ],
-      "384": [
-        {
-          "accessible_scopes": [
-            "__main__",
-            "__main__",
-            "__wrappers__",
-            "__wrappers__.inc"
-          ],
-          "code": "memory[ap] = segments.add()",
-          "flow_tracking_data": {
-            "ap_tracking": {
-              "group": 15,
-              "offset": 52
-            },
-            "reference_ids": {}
-          }
-        }
-      ],
-      "4": [
-        {
-          "accessible_scopes": [
-            "starkware.starknet.common.syscalls",
-            "starkware.starknet.common.syscalls.storage_read"
-          ],
-          "code": "syscall_handler.storage_read(segments=segments, syscall_ptr=ids.syscall_ptr)",
-          "flow_tracking_data": {
-            "ap_tracking": {
-              "group": 0,
-              "offset": 1
-            },
-            "reference_ids": {
-              "starkware.starknet.common.syscalls.storage_read.syscall_ptr": 0
-            }
           }
         }
       ],
@@ -624,6 +542,88 @@
             "reference_ids": {
               "starkware.cairo.common.math_cmp.is_nn.a": 5
             }
+          }
+        }
+      ],
+      "106": [
+        {
+          "accessible_scopes": [
+            "starkware.cairo.common.uint256",
+            "starkware.cairo.common.uint256.uint256_add"
+          ],
+          "code": "sum_low = ids.a.low + ids.b.low\nids.carry_low = 1 if sum_low >= ids.SHIFT else 0\nsum_high = ids.a.high + ids.b.high + ids.carry_low\nids.carry_high = 1 if sum_high >= ids.SHIFT else 0",
+          "flow_tracking_data": {
+            "ap_tracking": {
+              "group": 6,
+              "offset": 4
+            },
+            "reference_ids": {
+              "starkware.cairo.common.uint256.uint256_add.a": 6,
+              "starkware.cairo.common.uint256.uint256_add.b": 7,
+              "starkware.cairo.common.uint256.uint256_add.carry_high": 9,
+              "starkware.cairo.common.uint256.uint256_add.carry_low": 8
+            }
+          }
+        }
+      ],
+      "128": [
+        {
+          "accessible_scopes": [
+            "starkware.cairo.common.uint256",
+            "starkware.cairo.common.uint256.split_64"
+          ],
+          "code": "ids.low = ids.a & ((1<<64) - 1)\nids.high = ids.a >> 64",
+          "flow_tracking_data": {
+            "ap_tracking": {
+              "group": 7,
+              "offset": 2
+            },
+            "reference_ids": {
+              "starkware.cairo.common.uint256.split_64.a": 10,
+              "starkware.cairo.common.uint256.split_64.high": 12,
+              "starkware.cairo.common.uint256.split_64.low": 11
+            }
+          }
+        }
+      ],
+      "256": [
+        {
+          "accessible_scopes": [
+            "starkware.cairo.common.uint256",
+            "starkware.cairo.common.uint256.uint256_mul_div_mod"
+          ],
+          "code": "a = (ids.a.high << 128) + ids.a.low\nb = (ids.b.high << 128) + ids.b.low\ndiv = (ids.div.high << 128) + ids.div.low\nquotient, remainder = divmod(a * b, div)\n\nids.quotient_low.low = quotient & ((1 << 128) - 1)\nids.quotient_low.high = (quotient >> 128) & ((1 << 128) - 1)\nids.quotient_high.low = (quotient >> 256) & ((1 << 128) - 1)\nids.quotient_high.high = quotient >> 384\nids.remainder.low = remainder & ((1 << 128) - 1)\nids.remainder.high = remainder >> 128",
+          "flow_tracking_data": {
+            "ap_tracking": {
+              "group": 10,
+              "offset": 182
+            },
+            "reference_ids": {
+              "starkware.cairo.common.uint256.uint256_mul_div_mod.a": 13,
+              "starkware.cairo.common.uint256.uint256_mul_div_mod.b": 14,
+              "starkware.cairo.common.uint256.uint256_mul_div_mod.div": 15,
+              "starkware.cairo.common.uint256.uint256_mul_div_mod.quotient_high": 17,
+              "starkware.cairo.common.uint256.uint256_mul_div_mod.quotient_low": 16,
+              "starkware.cairo.common.uint256.uint256_mul_div_mod.remainder": 18
+            }
+          }
+        }
+      ],
+      "384": [
+        {
+          "accessible_scopes": [
+            "__main__",
+            "__main__",
+            "__wrappers__",
+            "__wrappers__.inc"
+          ],
+          "code": "memory[ap] = segments.add()",
+          "flow_tracking_data": {
+            "ap_tracking": {
+              "group": 15,
+              "offset": 52
+            },
+            "reference_ids": {}
           }
         }
       ]
@@ -2321,7 +2321,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2332,6 +2332,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "felt*"
           }
         },
@@ -2342,7 +2343,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2353,6 +2354,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "felt*"
           }
         },
@@ -2363,7 +2365,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2374,6 +2376,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "felt"
           }
         },
@@ -2384,7 +2387,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2395,6 +2398,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "felt"
           }
         },
@@ -2405,7 +2409,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2416,6 +2420,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "felt"
           }
         },
@@ -2426,7 +2431,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2437,6 +2442,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "felt"
           }
         },
@@ -2447,7 +2453,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2458,6 +2464,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "starkware.cairo.common.uint256.Uint256"
           }
         },
@@ -2468,7 +2475,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2479,6 +2486,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "starkware.cairo.common.uint256.Uint256"
           }
         },
@@ -2489,7 +2497,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2500,6 +2508,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "felt"
           }
         },
@@ -2510,7 +2519,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2521,6 +2530,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "felt"
           }
         },
@@ -2531,7 +2541,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2542,6 +2552,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "felt"
           }
         },
@@ -2552,7 +2563,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2563,6 +2574,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "felt"
           }
         },
@@ -2573,7 +2585,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2584,6 +2596,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "felt"
           }
         },
@@ -2594,7 +2607,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2605,6 +2618,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "starkware.cairo.common.uint256.Uint256"
           }
         },
@@ -2615,7 +2629,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2626,6 +2640,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "starkware.cairo.common.uint256.Uint256"
           }
         },
@@ -2636,7 +2651,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2647,6 +2662,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "starkware.cairo.common.uint256.Uint256"
           }
         },
@@ -2657,7 +2673,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2668,6 +2684,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "starkware.cairo.common.uint256.Uint256"
           }
         },
@@ -2678,7 +2695,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2689,6 +2706,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "starkware.cairo.common.uint256.Uint256"
           }
         },
@@ -2699,7 +2717,7 @@
           },
           "pc": null,
           "value_address": {
-            "dereference": true,
+            "inner_dereference": false,
             "offset1": {
               "Reference": [
                 "FP",
@@ -2710,6 +2728,7 @@
             "offset2": {
               "Value": 0
             },
+            "outer_dereference": true,
             "value_type": "starkware.cairo.common.uint256.Uint256"
           }
         }
@@ -2717,13 +2736,13 @@
     }
   },
   "entry_points_by_type": {
-    "CONSTRUCTOR": [],
-    "L1_HANDLER": [],
     "EXTERNAL": [
       {
         "selector": "0x3b82f69851fa1625b367ea6c116252a84257da483dcec4d4e4bc270eb5c70a7",
         "offset": "0x179"
       }
-    ]
+    ],
+    "L1_HANDLER": [],
+    "CONSTRUCTOR": []
   }
 }

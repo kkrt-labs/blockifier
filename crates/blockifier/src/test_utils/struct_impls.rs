@@ -4,9 +4,8 @@ use cairo_vm::vm::runners::cairo_runner::ExecutionResources;
 use serde_json::Value;
 use starknet_api::block::{BlockNumber, BlockTimestamp};
 use starknet_api::core::{ChainId, ContractAddress, PatriciaKey};
-use starknet_api::hash::StarkHash;
 use starknet_api::transaction::Fee;
-use starknet_api::{contract_address, patricia_key};
+use starknet_api::{contract_address, felt, patricia_key};
 
 use super::update_json_value;
 use crate::blockifier::block::{BlockInfo, GasPrices};
@@ -124,7 +123,7 @@ impl GasCosts {
 impl ChainInfo {
     pub fn create_for_testing() -> Self {
         Self {
-            chain_id: ChainId(CHAIN_ID_NAME.to_string()),
+            chain_id: ChainId::Other(CHAIN_ID_NAME.to_string()),
             fee_token_addresses: FeeTokenAddresses {
                 eth_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS),
                 strk_fee_token_address: contract_address!(TEST_ERC20_CONTRACT_ADDRESS2),
@@ -161,7 +160,6 @@ impl BlockContext {
             chain_info: ChainInfo::create_for_testing(),
             versioned_constants: VersionedConstants::create_for_testing(),
             bouncer_config: BouncerConfig::max(),
-            concurrency_mode: false,
         }
     }
 
@@ -171,23 +169,18 @@ impl BlockContext {
             chain_info: ChainInfo::create_for_testing(),
             versioned_constants: VersionedConstants::create_for_account_testing(),
             bouncer_config: BouncerConfig::max(),
-            concurrency_mode: false,
         }
     }
 
-    pub fn create_for_bouncer_testing(
-        max_n_events_in_block: usize,
-        concurrency_mode: bool,
-    ) -> Self {
+    pub fn create_for_bouncer_testing(max_n_events_in_block: usize) -> Self {
         Self {
             bouncer_config: BouncerConfig {
                 block_max_capacity: BouncerWeights {
                     n_events: max_n_events_in_block,
-                    ..BouncerWeights::max(false)
+                    ..BouncerWeights::max()
                 },
-                ..BouncerConfig::empty()
             },
-            ..Self::create_for_account_testing_with_concurrency_mode(concurrency_mode)
+            ..Self::create_for_account_testing()
         }
     }
 
@@ -196,10 +189,6 @@ impl BlockContext {
             block_info: BlockInfo::create_for_testing_with_kzg(use_kzg_da),
             ..Self::create_for_account_testing()
         }
-    }
-
-    pub fn create_for_account_testing_with_concurrency_mode(concurrency_mode: bool) -> Self {
-        Self { concurrency_mode, ..Self::create_for_account_testing() }
     }
 }
 
