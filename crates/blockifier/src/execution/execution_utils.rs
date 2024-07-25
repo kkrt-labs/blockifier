@@ -167,6 +167,13 @@ pub fn felt_range_from_ptr(
     Ok(values)
 }
 
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ReferenceTmp {
+    pub ap_tracking_data: cairo_vm::serde::deserialize_program::ApTracking,
+    pub pc: Option<usize>,
+    pub value_address: cairo_vm::serde::deserialize_program::ValueAddress,
+}
+
 // TODO(Elin,01/05/2023): aim to use LC's implementation once it's in a separate crate.
 pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program, ProgramError> {
     let identifiers = serde_json::from_value::<HashMap<String, Identifier>>(program.identifiers)?;
@@ -183,7 +190,35 @@ pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program,
     };
 
     let instruction_locations = None;
-    let reference_manager = serde_json::from_value::<ReferenceManager>(program.reference_manager)?;
+
+    // Deserialize the references in ReferenceManager
+    let mut reference_manager = ReferenceManager::default();
+
+    if let Some(references_value) = program.reference_manager.get("references") {
+        for reference_value in references_value
+            .as_array()
+            .unwrap_or_else(|| panic!("Expected 'references' to be an array"))
+        {
+            if reference_value.get("value_address").is_some() {
+                // Directly deserialize references_value without using deserialize_value_address
+                let tmp = serde_json::from_value::<ReferenceTmp>(reference_value.clone())?;
+
+                reference_manager.references.push(
+                    cairo_vm::serde::deserialize_program::Reference {
+                        ap_tracking_data: tmp.ap_tracking_data,
+                        pc: tmp.pc,
+                        value_address: tmp.value_address,
+                    },
+                );
+            } else {
+                let tmp = serde_json::from_value::<cairo_vm::serde::deserialize_program::Reference>(
+                    reference_value.clone(),
+                )?;
+
+                reference_manager.references.push(tmp);
+            }
+        }
+    }
 
     let program = Program::new(
         builtins,
@@ -197,6 +232,110 @@ pub fn sn_api_to_cairo_vm_program(program: DeprecatedProgram) -> Result<Program,
     )?;
 
     Ok(program)
+}
+
+// Function to convert MaybeRelocatable to hex string
+fn maybe_relocatable_to_hex_string(mr: &MaybeRelocatable) -> String {
+    match mr {
+        MaybeRelocatable::Int(value) => format!("0x{}", value.to_str_radix(16)),
+        _ => unimplemented!(),
+    }
+}
+
+use std::str::FromStr;
+
+// Helper function to convert an array of u64 values to a JSON number
+fn array_to_json_number(arr: &[serde_json::Value]) -> Option<serde_json::Number> {
+    let digits: Option<Vec<u32>> = arr.iter().map(|v| v.as_u64().map(|u| u as u32)).collect();
+    digits.map(|digits| {
+        // Convert the felt value to a serde_json::Number directly
+        serde_json::Number::from_str(&Felt252::from(BigUint::new(digits)).to_string())
+            .expect("Failed to parse felt value as JSON number")
+    })
+}
+
+// Helper function to process identifiers
+fn process_identifiers(
+    json_value: &serde_json::Value,
+) -> serde_json::Map<String, serde_json::Value> {
+    json_value.get("identifiers").and_then(serde_json::Value::as_object).map_or_else(
+        serde_json::Map::new,
+        |identifiers_obj| {
+            identifiers_obj
+                .iter()
+                .filter_map(|(key, inner_value)| {
+                    inner_value.as_object().map(|inner_obj| {
+                        let filtered_inner_obj = inner_obj
+                            .iter()
+                            .filter_map(|(inner_key, inner_val)| {
+                                if inner_val.is_null() {
+                                    return None;
+                                }
+
+                                // Rename the key if it's "type_" to "type"
+                                let renamed_key = if inner_key == "type_" {
+                                    "type".to_string()
+                                } else {
+                                    inner_key.to_string()
+                                };
+
+                                // Check if the key is "value" and extract the "val" field to
+                                // convert it to a JSON number
+                                let value = match renamed_key.as_str() {
+                                    "value" => inner_val
+                                        .get("value")
+                                        .and_then(|val_obj| val_obj.get("val"))
+                                        .and_then(|inner_val_obj| {
+                                            array_to_json_number(inner_val_obj.as_array().unwrap())
+                                        })
+                                        .map(serde_json::Value::Number)
+                                        .unwrap_or_else(|| inner_val.clone()),
+                                    _ => inner_val.clone(),
+                                };
+
+                                Some((renamed_key, value))
+                            })
+                            .collect::<serde_json::Map<_, _>>();
+
+                        (key.to_string(), serde_json::Value::Object(filtered_inner_obj))
+                    })
+                })
+                .collect()
+        },
+    )
+}
+
+// Main function to convert Program to DeprecatedProgram
+pub fn cairo_vm_to_sn_api_program(program: Program) -> Result<DeprecatedProgram, ProgramError> {
+    // Serialize the Program object to JSON bytes
+    let serialized_program = program.serialize()?;
+    // Deserialize the JSON bytes into a Value
+    let json_value: serde_json::Value = serde_json::from_slice(&serialized_program)?;
+
+    // Convert the data segment to the expected hex string format
+    let data = serde_json::to_value(
+        program
+            .iter_data()
+            .cloned()
+            .map(|mr: MaybeRelocatable| maybe_relocatable_to_hex_string(&mr))
+            .collect::<Vec<String>>(),
+    )?;
+
+    // Process identifiers
+    let identifiers = process_identifiers(&json_value);
+
+    Ok(DeprecatedProgram {
+        attributes: json_value.get("attributes").cloned().unwrap_or_default(),
+        builtins: json_value.get("builtins").cloned().unwrap(),
+        compiler_version: json_value.get("compiler_version").cloned().unwrap_or_default(),
+        data,
+        debug_info: json_value.get("debug_info").cloned().unwrap_or_default(),
+        hints: json_value.get("hints").cloned().unwrap(),
+        identifiers: serde_json::Value::Object(identifiers),
+        main_scope: json_value.get("main_scope").cloned().unwrap_or_default(),
+        prime: json_value.get("prime").cloned().unwrap(),
+        reference_manager: json_value.get("reference_manager").cloned().unwrap(),
+    })
 }
 
 #[derive(Debug)]
