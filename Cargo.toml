@@ -6,7 +6,7 @@ resolver = "2"
 members = ["crates/blockifier", "crates/native_blockifier"]
 
 [workspace.package]
-version = "0.8.0-rc.0"
+version = "0.8.0-rc.1"
 edition = "2021"
 repository = "https://github.com/starkware-libs/blockifier/"
 license = "Apache-2.0"
@@ -20,10 +20,10 @@ ark-secp256k1 = "0.4.0"
 ark-secp256r1 = "0.4.0"
 assert_matches = "1.5.0"
 cached = "0.44.0"
-cairo-lang-casm = "2.7.0-rc.2"
-cairo-lang-runner = "2.7.0-rc.2"
-cairo-lang-starknet-classes = "2.7.0-rc.2"
-cairo-lang-utils = "2.7.0-rc.2"
+cairo-lang-casm = "2.7.0-rc.3"
+cairo-lang-runner = "2.7.0-rc.3"
+cairo-lang-starknet-classes = "2.7.0-rc.3"
+cairo-lang-utils = "2.7.0-rc.3"
 cairo-vm = { version = "1.0.0-rc5", features = ["test_utils"] }
 criterion = "0.3"
 derive_more = "0.99.17"
@@ -38,6 +38,7 @@ num-rational = { version = "0.4", features = ["serde"] }
 num-traits = "0.2"
 once_cell = "1.19.0"
 papyrus_storage = "0.4.0-dev.4"
+paste = "1.0.15"
 phf = { version = "0.11", features = ["macros"] }
 pretty_assertions = "1.2.1"
 pyo3 = "0.19.1"
@@ -62,7 +63,14 @@ tikv-jemallocator = "0.5.4"
 future-incompatible = "deny"
 nonstandard-style = "deny"
 rust-2018-idioms = "deny"
-unused = "deny"
+# See [here](https://github.com/taiki-e/cargo-llvm-cov/issues/370) for a discussion on why this is
+# needed (from rust 1.80).
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
+# Need a priority of `-1` so it is before the `warnings` lint. See
+# [here](https://github.com/rust-lang/cargo/issues/12918) for details on the issue, and
+# [here](https://rust-lang.github.io/rust-clippy/master/index.html#/lint_groups_priority) for the
+# clippy failure this solves.
+unused = { level = "deny", priority = -1 }
 warnings = "deny"
 
 [workspace.lints.clippy]
